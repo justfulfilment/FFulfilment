@@ -1,0 +1,273 @@
+@import "tailwindcss";
+
+/* Fine-pointer only: the dot-grid reveal is a cursor affordance. */
+@custom-variant pointer-fine (@media (hover: hover) and (pointer: fine));
+
+/* ==========================================================================
+   Supermom design tokens
+   Measured from Figma file nEJCs6idYWferFTWIWYOmS.
+   Names match the "Supermom tokens" Figma variable collection.
+   Do not invent colours outside this set: derive states with color-mix().
+   ========================================================================== */
+
+@theme {
+  /* surfaces */
+  --color-surface-page: #413870;
+  --color-surface-card: #261d38;
+  --color-surface-sunken: #231a34;
+  --color-surface-chip-dark: #141019;
+  --color-surface-nav: #e8deef;
+  --color-surface-input: #f6f0f8;
+
+  /* accent */
+  --color-accent-primary: #8059aa;
+  --color-accent-deep: #624184;
+  --color-accent-like: #e4b9e4;
+
+  /* borders */
+  /* 3.11:1 against the page surface AS RENDERED, i.e. including the ambient
+     glow at its brightest. The brief's #9886a7 gives 3.11:1 against the flat
+     #413870 token but only 2.36:1 once the glow sits behind it; +12% white
+     restores the intended ratio. Verified by calculation, not by eye. */
+  --color-border-on-dark: #a495b2;
+  --color-border-on-light: #806a92;
+  --color-border-strong: #b292c6;
+
+  /* text */
+  --color-text-primary: #f4eef9;     /* 9.11:1 on surface-page */
+  --color-text-secondary: #c5b6d4;   /* 5.44:1 on surface-page */
+  --color-text-inverse: #231a34;
+  --color-text-icon: #f8e4fe;
+  --color-text-heading-warm: #fff1e8;
+  --color-text-eyebrow: #e8deef;
+
+  /* ambient glow */
+  --color-glow-blue: #3697dc;
+  --color-glow-pink: #fe599b;
+
+  /* scrim over the hero artwork (measured from Figma node 1:1394) */
+  --color-scrim: #0f081a;
+
+  /* radii */
+  --radius-panel: 24px;   /* page frame, measured from node 1:1369 */
+  --radius-card: 20px;
+  --radius-nav: 16px;
+  --radius-track: 14px;
+  --radius-control: 12px;
+  --radius-thumb: 10px;
+  --radius-chip: 8px;
+  --radius-pill: 999px;
+
+  /* derived interaction states, all color-mix() off the tokens above */
+  --color-accent-primary-hover: color-mix(in oklab, var(--color-accent-primary) 88%, white);
+  --color-accent-deep-hover: color-mix(in oklab, var(--color-accent-deep) 86%, white);
+  --color-surface-sunken-hover: color-mix(in oklab, var(--color-surface-sunken) 88%, white);
+  --color-border-on-dark-hover: color-mix(in oklab, var(--color-border-on-dark) 70%, white);
+  --color-tint-on-dark: color-mix(in oklab, var(--color-text-primary) 8%, transparent);
+  --color-tint-on-dark-strong: color-mix(in oklab, var(--color-text-primary) 14%, transparent);
+
+  /* typography */
+  --font-display: var(--font-clash-display), "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ==========================================================================
+   Motion tokens (motion-system skill). Every motion uses exactly one
+   duration token and one easing token. No raw ms or cubic-bezier in components.
+   Project mode: Expressive, with one Dramatic beat (first-load hero entrance).
+   ========================================================================== */
+
+@theme {
+  --ease-none: cubic-bezier(0, 0, 1, 1);
+  --ease-in-cubic: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+  --ease-in-quart: cubic-bezier(0.895, 0.03, 0.685, 0.22);
+  --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-out-cubic: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-cubic: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --ease-in-out-quart: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-in-out-quint: cubic-bezier(0.86, 0, 0.07, 1);
+}
+
+:root {
+  --duration-none: 0ms;
+  --duration-xshort: 75ms;
+  --duration-short: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-xslow: 600ms;
+}
+
+@utility duration-none { --tw-duration: var(--duration-none); transition-duration: var(--duration-none); }
+@utility duration-xshort { --tw-duration: var(--duration-xshort); transition-duration: var(--duration-xshort); }
+@utility duration-short { --tw-duration: var(--duration-short); transition-duration: var(--duration-short); }
+@utility duration-normal { --tw-duration: var(--duration-normal); transition-duration: var(--duration-normal); }
+@utility duration-slow { --tw-duration: var(--duration-slow); transition-duration: var(--duration-slow); }
+@utility duration-xslow { --tw-duration: var(--duration-xslow); transition-duration: var(--duration-xslow); }
+
+/* Expressive amplitude. press-scale is 0.97 per the build brief (the skill's
+   Expressive default is 0.96); kept as a named token rather than a raw value. */
+:root {
+  --motion-shift: 8px;
+  --motion-scale-from: 0.94;
+  --motion-pop-from: 0.6;
+  --motion-overshoot: 1.03;
+  --motion-settle: 1;
+  --motion-overshoot-shift: 8px;
+  --motion-rotate: 8deg;
+  --motion-press-scale: 0.97;
+  --motion-lift: 2px;
+  --motion-stagger: 30ms;
+  --stagger-cap: 5;
+  --motion-glow-ease: 0.1;
+}
+
+/* The Dramatic beat: first-load hero entrance only. */
+[data-motion-mode="dramatic"] {
+  --motion-shift: 12px;
+  --motion-scale-from: 0.9;
+  --motion-overshoot: 1.06;
+  --motion-settle: 0.99;
+  --motion-stagger: 50ms;
+  --stagger-cap: 7;
+}
+
+/* Reduced motion, from the OS or from the footer's "Pause effects" control.
+   Both resolve to the same switch: opacity only, at duration-short. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-normal: 150ms;
+    --duration-slow: 150ms;
+    --duration-xslow: 150ms;
+  }
+  *, *::before, *::after {
+    --motion-shift: 0px !important;
+    --motion-scale-from: 1 !important;
+    --motion-pop-from: 1 !important;
+    --motion-overshoot: 1 !important;
+    --motion-settle: 1 !important;
+    --motion-overshoot-shift: 0px !important;
+    --motion-rotate: 0deg !important;
+    --motion-press-scale: 1 !important;
+    --motion-lift: 0px !important;
+    --motion-stagger: 0ms !important;
+  }
+}
+
+:root[data-reduce-motion] {
+  --duration-normal: 150ms;
+  --duration-slow: 150ms;
+  --duration-xslow: 150ms;
+}
+:root[data-reduce-motion] *,
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+  --motion-shift: 0px !important;
+  --motion-scale-from: 1 !important;
+  --motion-pop-from: 1 !important;
+  --motion-overshoot: 1 !important;
+  --motion-settle: 1 !important;
+  --motion-overshoot-shift: 0px !important;
+  --motion-rotate: 0deg !important;
+  --motion-press-scale: 1 !important;
+  --motion-lift: 0px !important;
+  --motion-stagger: 0ms !important;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  html {
+    background-color: var(--color-surface-chip-dark);
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;   /* no font inflation in landscape */
+    overscroll-behavior: none;        /* no pull-to-refresh hijack */
+  }
+
+  body {
+    background-color: var(--color-surface-chip-dark);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* mobile-native: kill the grey tap flash, keep our own press states */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, button, textarea, select { font: inherit; }
+
+  /* mobile-native: iOS Safari zooms the page when focus lands on an input
+     under 16px and never zooms back out. Fix the cause, never block zoom. */
+  @media (pointer: coarse) {
+    input, textarea, select { font-size: 16px; }
+  }
+
+  /* mobile-native: kill the 300ms tap delay, and stop long-press selecting
+     control labels. Content text stays selectable. */
+  button, a, [role="button"], [role="tab"], label {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Figures that tick must not jitter */
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* One focus ring for the whole product. Visible within duration-xshort. */
+  :focus-visible {
+    outline: 2px solid var(--color-border-strong);
+    outline-offset: 2px;
+    border-radius: inherit;
+  }
+  /* Light surfaces need the darker ring to stay visible */
+  .focus-ring-on-light:focus-visible {
+    outline-color: var(--color-accent-deep);
+  }
+}
+
+/* ==========================================================================
+   Keyframes (motion-system). Overshoot comes from the amplitude variables,
+   so reduced motion flattens them automatically.
+   ========================================================================== */
+
+@keyframes motion-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes motion-rise-in {
+  0% { opacity: 0; transform: translateY(var(--motion-shift)); }
+  70% { opacity: 1; transform: translateY(calc(var(--motion-overshoot-shift) * -0.25)); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes motion-hero-in {
+  0% { opacity: 0; transform: scale(var(--motion-scale-from)) translateY(var(--motion-shift)); }
+  55% { opacity: 1; transform: scale(var(--motion-overshoot)) translateY(0); }
+  75% { transform: scale(var(--motion-settle)) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Touch devices get a slow ambient drift instead of pointer tracking.
+   Transform only: never animate filter: blur(). */
+@keyframes motion-glow-drift {
+  0%   { transform: translate3d(0, 0, 0); }
+  50%  { transform: translate3d(6%, 4%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+@utility anim-fade-in { animation: motion-fade-in var(--tw-duration, var(--duration-normal)) var(--tw-ease, var(--ease-out-cubic)) both; }
+@utility anim-rise-in { animation: motion-rise-in var(--tw-duration, var(--duration-normal)) var(--tw-ease, var(--ease-out-quart)) both; }
+@utility anim-hero-in { animation: motion-hero-in var(--tw-duration, var(--duration-xslow)) var(--tw-ease, var(--ease-out-quint)) both; }
+@utility stagger-item { animation-delay: calc(min(var(--i, 0), var(--stagger-cap, 0)) * var(--motion-stagger)); }
+
+/* The one Dramatic beat: first-load hero entrance. Scoped to that element so
+   the rest of the page keeps Expressive amplitude (press scale, lift, stagger).
+   The reduced-motion block above uses !important, so this still flattens. */
+@utility hero-dramatic {
+  --motion-scale-from: 0.9;
+  --motion-overshoot: 1.06;
+  --motion-settle: 0.99;
+  --motion-shift: 12px;
+}
