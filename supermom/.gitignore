@@ -44,3 +44,6 @@ next-env.d.ts
 # derivatives (hero.webp, hero@1x.webp, hero-lqip.txt) are. Re-export from
 # Figma node 1:1393 if the originals are ever needed again.
 /public/img/hero.png
+
+# preview screenshots for review, not part of the app
+/preview/
