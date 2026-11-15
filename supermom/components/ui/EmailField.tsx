@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { pressable } from "./Dead";
 
 /**
- * Figma build note 4:1217 — "Email" is a floating label, not a placeholder.
+ * Figma build note 4:1217. "Email" is a floating label, not a placeholder.
  * At rest it sits in the field at 14px. On focus or when filled it shrinks to
  * 11px and docks top-left while the value types below it. The Continue pill
  * lives inside the field. Enter submits.
@@ -32,7 +32,9 @@ export function EmailField({
   const id = useId();
   const [focused, setFocused] = useState(false);
   const floated = focused || value.length > 0;
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+  // The brief's flow is simulated, so there is nothing to validate against.
+  // Anything the user types counts, and Continue activates on the first keystroke.
+  const valid = value.trim().length > 0;
 
   return (
     <div className="flex w-full flex-col items-center gap-2">
@@ -65,7 +67,7 @@ export function EmailField({
 
         <input
           id={`${id}-email`}
-          type="email"
+          type="text"
           inputMode="email"
           autoComplete="email"
           spellCheck={false}

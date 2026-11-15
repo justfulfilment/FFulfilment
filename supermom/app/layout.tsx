@@ -25,7 +25,7 @@ const clashDisplay = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "supermom — an NFT collection celebrating African motherhood",
+  title: "supermom, an NFT collection celebrating African motherhood",
   description:
     "Discover supermom. A collection celebrating the strength and spirit of motherhood.",
   applicationName: "supermom",

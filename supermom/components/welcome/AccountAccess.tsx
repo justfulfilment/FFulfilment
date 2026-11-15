@@ -1,12 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { duration, ease } from "@/lib/motion";
 import { Button } from "@/components/ui/Button";
 import { CodeInput, CODE_LENGTH } from "@/components/ui/CodeInput";
-import { DeadLink, pressable } from "@/components/ui/Dead";
+import { pressable } from "@/components/ui/Dead";
 import { Arrow, EmailField } from "@/components/ui/EmailField";
 import { SegmentedToggle } from "@/components/ui/SegmentedToggle";
 import { SocialButton } from "@/components/ui/SocialButton";
@@ -73,15 +74,15 @@ export function AccountAccess({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "relative flex w-full max-w-[520px] flex-col items-center lg:px-8",
-        "lg:h-[937px] lg:pt-[166.5px]",
+        "relative flex w-full max-w-[520px] flex-col items-center lg:h-full lg:px-8",
         className,
       )}
+      style={{ paddingTop: "var(--wl-pt)" }}
     >
-      <div className="flex w-full flex-col items-center gap-8 lg:gap-12">
+      <div className="flex w-full flex-col items-center" style={{ gap: "var(--wl-gap)" }}>
         {/* Heading. Fixed height on desktop so every downstream y position
             matches Figma even though Clash Display sets a 1.1 line height. */}
-        <div className="flex w-full flex-col items-center gap-2 text-center lg:h-[108px]">
+        <div className="flex w-full flex-col items-center gap-2 text-center" style={{ height: "var(--wl-head)" }}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={isCode ? "code" : "form"}
@@ -91,7 +92,8 @@ export function AccountAccess({ className }: { className?: string }) {
               transition={{ duration: duration.short, ease: ease.outCubic }}
               className="flex flex-col items-center gap-2"
             >
-              <h1 className="font-display text-[32px] font-semibold leading-[1.1] tracking-[-0.015em] text-balance text-text-primary lg:whitespace-nowrap lg:text-[48px]">
+              <h1 className="font-display font-semibold leading-[1.1] tracking-[-0.015em] text-balance text-text-primary lg:whitespace-nowrap"
+                style={{ fontSize: "var(--wl-h1)" }}>
                 {isCode ? "Check your inbox." : "Meet your next icon."}
               </h1>
               <p className="max-w-[358px] text-pretty font-sans text-[13px] leading-5 text-text-secondary lg:text-[14px] lg:leading-[22px]">
@@ -147,7 +149,8 @@ export function AccountAccess({ className }: { className?: string }) {
                 aria-hidden={!showProviders}
               >
                 <div
-                  className="flex w-full flex-col items-center gap-4 pt-8 lg:gap-5 lg:pt-12"
+                  className="flex w-full flex-col items-center gap-4 lg:gap-5"
+                  style={{ paddingTop: "var(--wl-gap)" }}
                   {...(!showProviders ? { inert: "" as unknown as boolean } : {})}
                 >
                   <Divider />
@@ -163,15 +166,19 @@ export function AccountAccess({ className }: { className?: string }) {
         )}
       </div>
 
-      <DeadLink
+      {/* The one real navigation on the page. Everything else stays dead. */}
+      <Link
+        href="/products"
         className={cn(
+          pressable,
           "mt-8 rounded-chip px-2 py-[2px] -mx-2 -my-[2px] font-sans text-[13px] font-medium leading-5 text-text-primary",
-          "hover:text-text-primary lg:absolute lg:left-1/2 lg:top-[742.5px] lg:mt-0 lg:-translate-x-1/2",
+          "lg:absolute lg:left-1/2 lg:mt-0 lg:-translate-x-1/2",
           "lg:hover:translate-y-[calc(-1*var(--motion-lift))] lg:hover:-translate-x-1/2",
         )}
+        style={{ bottom: "var(--wl-bottom)" }}
       >
         Explore the collection
-      </DeadLink>
+      </Link>
     </div>
   );
 }

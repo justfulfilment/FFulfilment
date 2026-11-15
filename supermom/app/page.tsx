@@ -5,9 +5,16 @@ import { Hero } from "@/components/welcome/Hero";
 import { Loader } from "@/components/Loader";
 
 /**
- * Desktop / Welcome — Figma 1:1366 at 1440px.
- * Page frame 1392x1115 inset 24; 33px inner padding; main content 1326x937
- * (677 left column + 649 hero); 48px gap; 64px footer.
+ * Desktop / Welcome, Figma 1:1366.
+ *
+ * The frame is locked to the viewport: no page scroll at any window size.
+ * The two columns carry the Figma ratio (677 : 649) as flex-grow rather than
+ * fixed widths, so they split the full width on any monitor and still measure
+ * exactly 677 and 649 at a 1440 viewport.
+ *
+ * Vertical rhythm is driven by --col-h (the real height of the main row), so
+ * the composition keeps its Figma proportions as the window gets shorter
+ * instead of overflowing.
  */
 export default function WelcomePage() {
   return (
@@ -15,29 +22,33 @@ export default function WelcomePage() {
       <Loader />
       <div
         className={
-          "min-h-dvh bg-surface-chip-dark p-2 lg:p-6 " +
+          "flex min-h-dvh flex-col bg-surface-chip-dark p-2 lg:h-dvh lg:overflow-hidden lg:p-6 " +
           "pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] " +
           "pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]"
         }
       >
         <div
           className={
-            "relative isolate flex min-h-[calc(100dvh-1rem)] flex-col overflow-hidden " +
-            "rounded-[15px] bg-surface-page p-4 lg:min-h-[calc(100dvh-3rem)] " +
-            "lg:rounded-panel lg:p-[33px]"
+            "relative isolate flex min-h-0 flex-1 flex-col overflow-hidden " +
+            "rounded-[15px] bg-surface-page p-4 lg:rounded-panel lg:p-[33px]"
           }
         >
           <AmbientGlow />
 
-          <main className="relative z-10 flex flex-1 flex-col items-center gap-10 lg:h-[937px] lg:flex-none lg:flex-row lg:items-stretch lg:gap-0">
+          <main
+            className={
+              "relative z-10 flex min-h-0 flex-1 flex-col items-center gap-4 " +
+              "lg:flex-row lg:items-stretch lg:gap-0"
+            }
+          >
             {/* Mobile puts the artwork first (Figma 8:1189); desktop puts it right. */}
-            <Hero className="order-1 aspect-[374/458] w-full shrink-0 lg:order-2 lg:aspect-auto lg:h-[937px] lg:w-[649px]" />
-            <div className="order-2 flex w-full flex-1 justify-center lg:order-1 lg:w-[677px] lg:flex-none">
+            <Hero className="order-1 min-h-0 w-full flex-[4_1_0%] lg:order-2 lg:h-full lg:flex-[649_1_0%]" />
+            <div className="order-2 flex min-h-0 w-full flex-[6_1_0%] justify-center lg:order-1 lg:h-full lg:flex-[677_1_0%]">
               <AccountAccess />
             </div>
           </main>
 
-          <div className="relative z-10 mt-10 lg:mt-12">
+          <div className="relative z-10 mt-3 shrink-0 lg:mt-12">
             <Footer />
           </div>
         </div>

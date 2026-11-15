@@ -53,7 +53,8 @@ export function Hero({ className }: { className?: string }) {
         }}
       />
 
-      <div className="absolute inset-x-4 bottom-5 flex max-w-[553px] flex-col gap-2 sm:inset-x-6 sm:bottom-8 lg:inset-x-12 lg:bottom-20 lg:gap-3">
+      <div className="absolute inset-x-4 flex max-w-[553px] flex-col gap-2 sm:inset-x-6 lg:inset-x-12 lg:gap-3"
+        style={{ bottom: "var(--wl-hero-pad)" }}>
         <p className="font-sans text-[10px] font-medium uppercase leading-4 tracking-[0.14em] text-text-eyebrow sm:text-[11px]">
           The Supermom Collection
         </p>
