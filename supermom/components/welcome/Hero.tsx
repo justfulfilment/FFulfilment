@@ -1,3 +1,4 @@
+import { AmbientField } from "@/components/motion/AmbientField";
 import { cn } from "@/lib/cn";
 import { HERO_LQIP } from "@/lib/hero-lqip";
 
@@ -14,6 +15,12 @@ export function Hero({ className }: { className?: string }) {
         className,
       )}
     >
+      <AmbientField className="-z-10" />
+
+      {/* The artwork is inset so the animated field reads as a lit frame
+          around it. Inner radius is the outer radius minus the inset, so the
+          corners stay concentric. */}
+      <div className="absolute inset-[8px] overflow-hidden rounded-[8px] lg:inset-[16px] lg:rounded-[4px]">
       {/* Low-quality placeholder underneath: the real image fades over it, so
           there is no flash of empty surface while it decodes. */}
       <div
@@ -63,6 +70,7 @@ export function Hero({ className }: { className?: string }) {
           <br />
           Unforgettable mothers.
         </h2>
+      </div>
       </div>
     </div>
   );

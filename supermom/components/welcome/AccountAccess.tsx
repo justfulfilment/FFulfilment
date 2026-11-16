@@ -175,7 +175,12 @@ export function AccountAccess({ className }: { className?: string }) {
           "lg:absolute lg:left-1/2 lg:mt-0 lg:-translate-x-1/2",
           "lg:hover:translate-y-[calc(-1*var(--motion-lift))] lg:hover:-translate-x-1/2",
         )}
-        style={{ bottom: "var(--wl-bottom)" }}
+        // Pinned to where it would sit in flow, not to a fraction of the
+        // column. The three controls above it are fixed height (48 + 74 + 154),
+        // so a purely fractional pin collided with the wallet row on shorter
+        // windows. This sums the real stack, which is still exactly 742.5px at
+        // the design height and always clears the providers block below it.
+        style={{ top: "var(--wl-explore-top)" }}
       >
         Explore the collection
       </Link>
