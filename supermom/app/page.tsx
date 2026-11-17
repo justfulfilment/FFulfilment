@@ -1,4 +1,5 @@
-import { AmbientGlow } from "@/components/motion/AmbientGlow";
+import { ContrastField } from "@/components/motion/ContrastField";
+import { FIELD_SETTINGS } from "@/lib/field-settings";
 import { AccountAccess } from "@/components/welcome/AccountAccess";
 import { Footer } from "@/components/welcome/Footer";
 import { Hero } from "@/components/welcome/Hero";
@@ -33,7 +34,7 @@ export default function WelcomePage() {
             "rounded-[15px] bg-surface-page p-4 lg:rounded-panel lg:p-[33px]"
           }
         >
-          <AmbientGlow />
+          <ContrastField settings={FIELD_SETTINGS} />
 
           <main
             className={

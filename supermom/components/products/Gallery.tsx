@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { pressable } from "@/components/ui/Dead";
-import { AmbientField } from "@/components/motion/AmbientField";
 import { NftCard } from "./NftCard";
 import { NFTS } from "@/lib/products";
 
@@ -101,13 +100,11 @@ export function Gallery() {
 
   return (
     <div className="relative isolate flex min-h-0 w-full flex-1 flex-col justify-center gap-[var(--pg-gap-s)]">
-      {/* The field is scoped to the card track, NOT the whole gallery. The
-          cards are opaque surface-card so they shield their own text, but the
-          arrows and dots are thin strokes: over the bright part of the field
-          they measured 1.55:1 against a 3:1 requirement, so they stay on the
-          plain page surface below it. */}
+      {/* No field in here. It lives on the page background, and the control
+          row below carries data-guard="border-on-dark" so the shader holds the
+          luminance behind the arrows and dots under their 3:1 ceiling. The
+          cards are opaque surface-card and shield themselves. */}
       <div className="relative isolate flex min-h-0 flex-col justify-center">
-        <AmbientField className="-z-10" />
 
       <div
         ref={trackRef}
@@ -132,7 +129,7 @@ export function Gallery() {
       </div>
       </div>
 
-      <div className="flex w-full shrink-0 items-center justify-center gap-6">
+      <div data-guard="border-on-dark" className="flex w-full shrink-0 items-center justify-center gap-6">
         <Arrow dir="prev" onClick={() => goTo(Math.max(0, active - 1))} disabled={!scrollable || active === 0} />
         <div className="flex items-center gap-2" role="tablist" aria-label="Gallery position">
           {NFTS.map((nft, i) => (

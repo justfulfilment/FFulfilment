@@ -40,7 +40,7 @@ export function Footer() {
   );
 
   return (
-    <footer className="flex w-full flex-col items-center gap-3 lg:h-16 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
+    <footer data-guard="text-secondary" className="flex w-full flex-col items-center gap-3 lg:h-16 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
       <p className="order-1 font-sans text-[20px] font-medium leading-8 text-text-primary lg:order-2 lg:text-[24px]">
         supermom.app
       </p>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AmbientGlow } from "@/components/motion/AmbientGlow";
+import { ContrastField } from "@/components/motion/ContrastField";
+import { FIELD_SETTINGS } from "@/lib/field-settings";
 import { Footer } from "@/components/welcome/Footer";
 import { SegmentedToggle } from "@/components/ui/SegmentedToggle";
 import { Gallery } from "@/components/products/Gallery";
@@ -37,7 +38,7 @@ export default function ProductsPage() {
         }
         style={{ gap: "var(--pg-gap-m)" }}
       >
-        <AmbientGlow />
+        <ContrastField settings={FIELD_SETTINGS} revision={FILTERS.findIndex((f) => f.value === filter)} />
         <Nav />
 
         <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center" style={{ gap: "var(--pg-gap-s)" }}>

@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
  *  the file still shows Inter on headlines. */
 export function SectionHeading({ className }: { className?: string }) {
   return (
-    <div className={cn("relative flex w-full flex-col items-center gap-2 text-center", className)}>
+    <div data-guard="text-secondary" className={cn("relative flex w-full flex-col items-center gap-2 text-center", className)}>
       <p className="font-sans text-[10px] font-medium uppercase leading-4 tracking-[0.14em] text-text-eyebrow lg:text-[11px]">
         The Supermom Collection
       </p>

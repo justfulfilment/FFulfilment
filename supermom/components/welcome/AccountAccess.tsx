@@ -82,7 +82,7 @@ export function AccountAccess({ className }: { className?: string }) {
       <div className="flex w-full flex-col items-center" style={{ gap: "var(--wl-gap)" }}>
         {/* Heading. Fixed height on desktop so every downstream y position
             matches Figma even though Clash Display sets a 1.1 line height. */}
-        <div className="flex w-full flex-col items-center gap-2 text-center" style={{ height: "var(--wl-head)" }}>
+        <div data-guard="text-secondary" className="flex w-full flex-col items-center gap-2 text-center" style={{ height: "var(--wl-head)" }}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={isCode ? "code" : "form"}
@@ -149,6 +149,7 @@ export function AccountAccess({ className }: { className?: string }) {
                 aria-hidden={!showProviders}
               >
                 <div
+                  data-guard="text-secondary"
                   className="flex w-full flex-col items-center gap-4 lg:gap-5"
                   style={{ paddingTop: "var(--wl-gap)" }}
                   {...(!showProviders ? { inert: "" as unknown as boolean } : {})}
@@ -180,6 +181,7 @@ export function AccountAccess({ className }: { className?: string }) {
         // so a purely fractional pin collided with the wallet row on shorter
         // windows. This sums the real stack, which is still exactly 742.5px at
         // the design height and always clears the providers block below it.
+        data-guard="text-primary"
         style={{ top: "var(--wl-explore-top)" }}
       >
         Explore the collection
@@ -216,6 +218,7 @@ function WalletRow({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: duration.normal, ease: ease.outCubic }}
+        data-guard="text-secondary"
         className={cn(
           "flex h-12 w-full items-center gap-3 rounded-control px-3",
           "border border-border-strong bg-[var(--color-tint-on-dark)]",
@@ -283,7 +286,7 @@ function CodeStep({
 
   return (
     <>
-      <div className="flex w-full flex-col items-center gap-3">
+      <div data-guard="text-secondary" className="flex w-full flex-col items-center gap-3">
         <CodeInput value={code} onValueChange={setCode} describedBy="resend-hint" />
         <p id="resend-hint" className="font-sans text-[12px] leading-[18px] text-text-secondary">
           {remaining > 0 ? (
