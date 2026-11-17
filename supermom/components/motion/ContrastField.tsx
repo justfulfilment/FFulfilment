@@ -71,6 +71,12 @@ export type ContrastFieldProps = {
   regionFeather?: number;
   /** Second surface colour for regions that opt into it. */
   backdropB?: string;
+  /**
+   * CSS inset for the canvas. Negative values make it larger than the box it
+   * sits in, which both scales the composition up and lets it run past the
+   * page edges instead of stopping at them.
+   */
+  inset?: string;
 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -89,6 +95,7 @@ export function ContrastField({
   rimScale = 0.45,
   bendScale = 0.35,
   regionFeather = 0.05,
+  inset = "0",
   backdropB,
 }: ContrastFieldProps) {
   const { effectsOff } = useEffectsState();
@@ -98,17 +105,22 @@ export function ContrastField({
 
   const measure = useCallback(() => {
     const host = hostRef.current;
-    const frame = host?.parentElement;
-    if (!host || !frame) return;
+    const root = host?.parentElement;
+    if (!host || !root) return;
 
-    const box = frame.getBoundingClientRect();
+    // Measured against the CANVAS, not its parent. The shader normalises
+    // fragment coordinates by the canvas's own size, so once the canvas is
+    // deliberately larger than the box it sits in -- which is how the effect
+    // bleeds past the page edges instead of being clipped -- normalising
+    // against the parent would put every element in the wrong place.
+    const box = host.getBoundingClientRect();
     if (box.width < 1 || box.height < 1) return;
     // Everything the shader reads is normalised to the container's LONGER
     // axis, so a rim is the same width whichever edge it sits on.
     const major = Math.max(box.width, box.height);
 
     const found: GuardRect[] = [];
-    frame.querySelectorAll<HTMLElement>("[data-guard]").forEach((el) => {
+    root.querySelectorAll<HTMLElement>("[data-guard]").forEach((el) => {
       const token = el.dataset.guard ?? "";
       // An unrecognised tag gets the tightest ceiling in the set rather than
       // being skipped: a typo must fail safe, not fail open.
@@ -144,7 +156,7 @@ export function ContrastField({
     //   ring -> visible, over the secondary surface so it keeps that colour
     //   hole -> cut out (the photo sitting inside its frame band)
     const regs: GuardRegion[] = [];
-    frame.querySelectorAll<HTMLElement>("[data-field-region]").forEach((el) => {
+    root.querySelectorAll<HTMLElement>("[data-field-region]").forEach((el) => {
       const kind = el.dataset.fieldRegion;
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
@@ -161,7 +173,7 @@ export function ContrastField({
       });
     });
     setRegions(regs.slice(0, 4));
-  }, [rimScale, bendScale, regionFeather]);
+  }, [rimScale, bendScale, regionFeather, inset]);
 
   // Re-measure on anything that can move a guarded element.
   useEffect(() => {
@@ -173,6 +185,7 @@ export function ContrastField({
 
     const ro = new ResizeObserver(measure);
     ro.observe(frame);
+    ro.observe(host);
     frame.querySelectorAll<HTMLElement>("[data-guard],[data-field-region]").forEach((el) => ro.observe(el));
 
     // Elements can change position without changing size -- a tab switch moves
@@ -226,7 +239,7 @@ export function ContrastField({
 
   return (
     <>
-      <div ref={hostRef} className={className} style={{ position: "absolute", inset: 0 }}>
+      <div ref={hostRef} className={className} style={{ position: "absolute", inset }}>
         <WayglimBackground paused={effectsOff} settings={settings} guard={guard} />
       </div>
       {debugRects && (

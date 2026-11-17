@@ -11,6 +11,12 @@
 export const FIELD_SETTINGS: Record<string, unknown> = {
   params: {
     /**
+     * No edge fade. The canvas is deliberately larger than the page frame,
+     * so the field should run right off it; fading at the canvas edge would
+     * just waste the overhang.
+     */
+    inset: 0,
+    /**
      * Lifts the arc clear of the heading. The shader adds
      * (50 - position)/100 * 1.6 to the sample coordinate's y, and y runs
      * upward, so a higher number pushes the pattern up the column. At the

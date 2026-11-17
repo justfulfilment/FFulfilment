@@ -38,7 +38,11 @@ export default function ProductsPage() {
         }
         style={{ gap: "var(--pg-gap-m)" }}
       >
-        <ContrastField settings={FIELD_SETTINGS} revision={FILTERS.findIndex((f) => f.value === filter)} />
+        <ContrastField
+          settings={FIELD_SETTINGS}
+          inset="-15%"
+          revision={FILTERS.findIndex((f) => f.value === filter)}
+        />
         <Nav />
 
         <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center" style={{ gap: "var(--pg-gap-s)" }}>

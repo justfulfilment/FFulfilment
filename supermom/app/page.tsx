@@ -34,6 +34,12 @@ export default function WelcomePage() {
             "rounded-[15px] bg-surface-page p-4 lg:rounded-panel lg:p-[33px]"
           }
         >
+          {/* 130% of the frame and pushed up, so the composition is a third
+              larger and runs off every edge rather than stopping at one. The
+              page frame clips it, which is what makes it a bleed and not a
+              fade. */}
+          <ContrastField settings={FIELD_SETTINGS} inset="-25% -15% -5% -15%" />
+
           <main
             className={
               "relative z-10 flex min-h-0 flex-1 flex-col items-center gap-4 " +
@@ -42,13 +48,7 @@ export default function WelcomePage() {
           >
             {/* Mobile puts the artwork first (Figma 8:1189); desktop puts it right. */}
             <Hero className="order-1 min-h-0 w-full flex-[4_1_0%] lg:order-2 lg:h-full lg:flex-[649_1_0%]" />
-            {/* The field lives on the sign-in column rather than the whole
-                frame. The engine composes its arc centred in whatever box it
-                is given, so putting it here is what centres the light on the
-                heading -- a full-frame canvas put the bright part out behind
-                the opaque artwork where nothing could see it. */}
-            <div className="relative order-2 flex min-h-0 w-full flex-[6_1_0%] justify-center lg:order-1 lg:h-full lg:flex-[677_1_0%]">
-              <ContrastField settings={FIELD_SETTINGS} />
+            <div className="order-2 flex min-h-0 w-full flex-[6_1_0%] justify-center lg:order-1 lg:h-full lg:flex-[677_1_0%]">
               <AccountAccess />
             </div>
           </main>
