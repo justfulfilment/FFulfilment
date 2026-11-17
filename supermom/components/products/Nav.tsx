@@ -32,7 +32,7 @@ export function Nav() {
   }, [wallet]);
 
   return (
-    <nav
+    <nav data-guard="surface"
       className={cn(
         "relative z-10 flex w-full shrink-0 items-center justify-between gap-4",
         "rounded-nav bg-surface-nav pl-4 pr-2 lg:pl-6 lg:pr-3",

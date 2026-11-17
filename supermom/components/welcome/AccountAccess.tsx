@@ -82,7 +82,7 @@ export function AccountAccess({ className }: { className?: string }) {
       <div className="flex w-full flex-col items-center" style={{ gap: "var(--wl-gap)" }}>
         {/* Heading. Fixed height on desktop so every downstream y position
             matches Figma even though Clash Display sets a 1.1 line height. */}
-        <div data-guard="text-secondary" className="flex w-full flex-col items-center gap-2 text-center" style={{ height: "var(--wl-head)" }}>
+        <div className="flex w-full flex-col items-center gap-2 text-center" style={{ height: "var(--wl-head)" }}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={isCode ? "code" : "form"}
@@ -92,11 +92,11 @@ export function AccountAccess({ className }: { className?: string }) {
               transition={{ duration: duration.short, ease: ease.outCubic }}
               className="flex flex-col items-center gap-2"
             >
-              <h1 className="font-display font-semibold leading-[1.1] tracking-[-0.015em] text-balance text-text-primary lg:whitespace-nowrap"
+              <h1 data-guard="text-primary" className="font-display font-semibold leading-[1.1] tracking-[-0.015em] text-balance text-text-primary lg:whitespace-nowrap"
                 style={{ fontSize: "var(--wl-h1)" }}>
                 {isCode ? "Check your inbox." : "Meet your next icon."}
               </h1>
-              <p className="max-w-[358px] text-pretty font-sans text-[13px] leading-5 text-text-secondary lg:text-[14px] lg:leading-[22px]">
+              <p data-guard="text-eyebrow" className="max-w-[358px] text-pretty font-sans text-[13px] leading-5 text-text-eyebrow lg:text-[14px] lg:leading-[22px]">
                 {isCode
                   ? "We sent a 6-digit code to your email. Enter it to sign in."
                   : "Discover supermom. A collection celebrating the strength and spirit of motherhood."}
@@ -149,7 +149,6 @@ export function AccountAccess({ className }: { className?: string }) {
                 aria-hidden={!showProviders}
               >
                 <div
-                  data-guard="text-secondary"
                   className="flex w-full flex-col items-center gap-4 lg:gap-5"
                   style={{ paddingTop: "var(--wl-gap)" }}
                   {...(!showProviders ? { inert: "" as unknown as boolean } : {})}
@@ -194,7 +193,7 @@ function Divider() {
   return (
     <div className="flex w-full items-center gap-3 lg:gap-4">
       <span className="h-px flex-1 bg-border-on-dark" />
-      <span className="font-sans text-[12px] leading-[18px] text-text-secondary">
+      <span data-guard="border-on-dark" className="font-sans text-[12px] leading-[18px] text-text-eyebrow">
         or continue with
       </span>
       <span className="h-px flex-1 bg-border-on-dark" />
@@ -218,7 +217,7 @@ function WalletRow({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: duration.normal, ease: ease.outCubic }}
-        data-guard="text-secondary"
+        data-guard="border-strong"
         className={cn(
           "flex h-12 w-full items-center gap-3 rounded-control px-3",
           "border border-border-strong bg-[var(--color-tint-on-dark)]",
@@ -235,7 +234,7 @@ function WalletRow({
         <span className="min-w-0 flex-1 truncate font-sans text-[13px] font-medium leading-5 text-text-primary tabular">
           {wallet.address}
         </span>
-        <span className="shrink-0 font-sans text-[12px] leading-[18px] text-text-secondary">
+        <span className="shrink-0 font-sans text-[12px] leading-[18px] text-text-eyebrow">
           {name}
         </span>
         <button
@@ -243,7 +242,7 @@ function WalletRow({
           onClick={onReset}
           className={cn(
             "shrink-0 rounded-chip px-2 py-1 font-sans text-[12px] leading-[18px]",
-            "text-text-secondary hover:text-text-primary hover:bg-[var(--color-tint-on-dark-strong)]",
+            "text-text-eyebrow hover:text-text-primary hover:bg-[var(--color-tint-on-dark-strong)]",
             pressable,
             "hover:translate-y-0",
           )}
@@ -286,9 +285,9 @@ function CodeStep({
 
   return (
     <>
-      <div data-guard="text-secondary" className="flex w-full flex-col items-center gap-3">
+      <div className="flex w-full flex-col items-center gap-3">
         <CodeInput value={code} onValueChange={setCode} describedBy="resend-hint" />
-        <p id="resend-hint" className="font-sans text-[12px] leading-[18px] text-text-secondary">
+        <p id="resend-hint" data-guard="text-eyebrow" className="font-sans text-[12px] leading-[18px] text-text-eyebrow">
           {remaining > 0 ? (
             <>
               Didn&apos;t get the code? Resend in{" "}

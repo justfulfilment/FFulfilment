@@ -9,7 +9,7 @@ import { useEffectsState } from "@/components/motion/MotionProvider";
    untouched while every link is comfortably tappable. */
 const linkClass = cn(
   "rounded-chip px-2 py-[3px] -mx-2 -my-[3px] text-center",
-  "font-sans text-[11px] leading-[18px] text-text-secondary",
+  "font-sans text-[11px] leading-[18px] text-text-eyebrow",
   "hover:text-text-primary lg:text-[12px]",
 );
 
@@ -40,7 +40,7 @@ export function Footer() {
   );
 
   return (
-    <footer data-guard="text-secondary" className="flex w-full flex-col items-center gap-3 lg:h-16 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
+    <footer data-guard="text-eyebrow" className="flex w-full flex-col items-center gap-3 lg:h-16 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
       <p className="order-1 font-sans text-[20px] font-medium leading-8 text-text-primary lg:order-2 lg:text-[24px]">
         supermom.app
       </p>

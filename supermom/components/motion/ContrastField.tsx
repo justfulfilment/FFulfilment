@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import WayglimBackground, { type GuardConfig, type GuardRect } from "./WayglimBackground";
+import WayglimBackground, { type GuardConfig, type GuardRect, type GuardRegion } from "./WayglimBackground";
 import { useEffectsState } from "./MotionProvider";
 import {
   GUARD_CEILINGS,
@@ -41,7 +41,7 @@ import {
  */
 
 /** The shader has twelve rect slots. */
-const MAX_RECTS = 12;
+const MAX_RECTS = 24;
 
 export type ContrastFieldProps = {
   className?: string;
@@ -59,7 +59,19 @@ export type ContrastFieldProps = {
   settings?: Record<string, unknown>;
   /** Draw the guard rects as outlines, for the lab. */
   debugRects?: boolean;
+  /** Global multiplier on the refraction. 0 turns it off. */
+  refract?: number;
+  /** Rim width as a fraction of each element's smaller dimension. */
+  rimScale?: number;
+  /** Bend strength as a fraction of each element's smaller dimension. */
+  bendScale?: number;
+  /** Softness of the region edges, so neither becomes a visible rectangle. */
+  regionFeather?: number;
+  /** Second surface colour for regions that opt into it. */
+  backdropB?: string;
 };
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export function ContrastField({
   className,
@@ -70,10 +82,16 @@ export function ContrastField({
   safety = 0.95,
   settings,
   debugRects = false,
+  refract = 1,
+  rimScale = 0.45,
+  bendScale = 0.35,
+  regionFeather = 0.05,
+  backdropB,
 }: ContrastFieldProps) {
   const { effectsOff } = useEffectsState();
   const hostRef = useRef<HTMLDivElement>(null);
   const [rects, setRects] = useState<GuardRect[]>([]);
+  const [measuredRegions, setRegions] = useState<GuardRegion[]>([]);
 
   const measure = useCallback(() => {
     const host = hostRef.current;
@@ -82,6 +100,9 @@ export function ContrastField({
 
     const box = frame.getBoundingClientRect();
     if (box.width < 1 || box.height < 1) return;
+    // Everything the shader reads is normalised to the container's LONGER
+    // axis, so a rim is the same width whichever edge it sits on.
+    const major = Math.max(box.width, box.height);
 
     const found: GuardRect[] = [];
     frame.querySelectorAll<HTMLElement>("[data-guard]").forEach((el) => {
@@ -91,17 +112,53 @@ export function ContrastField({
       const ceil = isGuardToken(token) ? GUARD_CEILINGS[token] : TIGHTEST_CEILING;
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
+
+      // One rule for every element, scaled by its own size. The smaller
+      // dimension is what governs how "thick" the element reads, so a 48px
+      // button bends light noticeably and a 20px line of text gets a fine
+      // rim. Thicker glass bends more; same idea.
+      const minDim = Math.min(r.width, r.height) / major;
+      const radiusPx = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+
       found.push({
         x: (r.left - box.left) / box.width,
         y: (r.top - box.top) / box.height,
         w: r.width / box.width,
         h: r.height / box.height,
         ceil,
+        radius: Math.min(radiusPx / major, minDim * 0.5),
+        band: clamp(minDim * rimScale, 0.004, 0.06),
+        strength: clamp(minDim * bendScale, 0.001, 0.03),
       });
     });
 
     setRects(capRects(found));
-  }, []);
+
+    // Regions say where the field may show at all, and which surface each
+    // part of it sits on. Measured the same way as the guards so they stay
+    // in step on resize.
+    //   show -> visible, over the page surface
+    //   ring -> visible, over the secondary surface so it keeps that colour
+    //   hole -> cut out (the photo sitting inside its frame band)
+    const regs: GuardRegion[] = [];
+    frame.querySelectorAll<HTMLElement>("[data-field-region]").forEach((el) => {
+      const kind = el.dataset.fieldRegion;
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return;
+      const radiusPx = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+      regs.push({
+        x: (r.left - box.left) / box.width,
+        y: (r.top - box.top) / box.height,
+        w: r.width / box.width,
+        h: r.height / box.height,
+        radius: radiusPx / major,
+        feather: kind === "show" ? regionFeather : regionFeather * 0.25,
+        subtract: kind === "hole",
+        backdropB: kind === "ring",
+      });
+    });
+    setRegions(regs.slice(0, 4));
+  }, [rimScale, bendScale, regionFeather]);
 
   // Re-measure on anything that can move a guarded element.
   useEffect(() => {
@@ -113,7 +170,7 @@ export function ContrastField({
 
     const ro = new ResizeObserver(measure);
     ro.observe(frame);
-    frame.querySelectorAll<HTMLElement>("[data-guard]").forEach((el) => ro.observe(el));
+    frame.querySelectorAll<HTMLElement>("[data-guard],[data-field-region]").forEach((el) => ro.observe(el));
 
     // Elements can change position without changing size -- a tab switch moves
     // the whole stack. A ResizeObserver never sees that, so a short burst of
@@ -155,8 +212,11 @@ export function ContrastField({
     ceilOpen,
     feather,
     backdrop: hexToUnitRgb(SURFACE_PAGE),
+    backdropB: backdropB ? hexToUnitRgb(backdropB) : undefined,
     heatmap,
     safety,
+    refract,
+    regions: measuredRegions,
     rects,
   };
 
@@ -206,6 +266,11 @@ function capRects(all: GuardRect[]): GuardRect[] {
     w: x1 - x0,
     h: y1 - y0,
     ceil: Math.min(...rest.map((r) => r.ceil)),
+    // A merged region is no longer one object, so it gets no refraction:
+    // bending light around a box that does not exist would read as a bug.
+    radius: Math.min(...rest.map((r) => r.radius)),
+    band: 0,
+    strength: 0,
   });
   return kept;
 }

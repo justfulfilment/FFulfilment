@@ -20,6 +20,7 @@ export function SocialButton({
   return (
     <button
       type="button"
+      data-guard="border-on-dark"
       aria-label={`Continue with ${name}`}
       className={cn(
         "flex h-12 flex-1 items-center justify-center rounded-control",

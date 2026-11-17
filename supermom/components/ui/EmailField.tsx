@@ -39,6 +39,7 @@ export function EmailField({
   return (
     <div className="flex w-full flex-col items-center gap-2">
       <form
+        data-guard="surface"
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
@@ -109,7 +110,7 @@ export function EmailField({
         </button>
       </form>
 
-      <p id={`${id}-help`} data-guard="text-secondary" className="font-sans text-[12px] leading-[18px] text-text-secondary">
+      <p id={`${id}-help`} data-guard="text-eyebrow" className="font-sans text-[12px] leading-[18px] text-text-eyebrow">
         We will never ask for your recovery phrase.
       </p>
     </div>

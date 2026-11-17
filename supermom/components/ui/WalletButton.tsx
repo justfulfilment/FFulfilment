@@ -30,6 +30,7 @@ export function WalletButton({
     <div className="group relative flex-1">
       <button
         type="button"
+        data-guard="border-on-dark"
         aria-label={`Connect ${name}`}
         aria-busy={pending || undefined}
         disabled={disabled}

@@ -33,6 +33,9 @@ export default function LabPage() {
   const [feather, setFeather] = useState(0.08);
   const [heatmap, setHeatmap] = useState(false);
   const [debugRects, setDebugRects] = useState(false);
+  const [refract, setRefract] = useState(1);
+  const [rimScale, setRimScale] = useState(0.45);
+  const [bendScale, setBendScale] = useState(0.35);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["value"]>("top-selling");
 
   const [pull, setPull] = useState(40);
@@ -91,6 +94,14 @@ export default function LabPage() {
           <Toggle label="Show guard rects" value={debugRects} onChange={setDebugRects} />
         </Group>
 
+        <Group title="Refraction">
+          <Slider label="Overall strength" value={refract} min={0} max={3} step={0.05} onChange={setRefract}
+            hint="0 turns the light-bending off entirely" />
+          <Slider label="Rim width" value={rimScale} min={0} max={1.5} step={0.05} onChange={setRimScale}
+            hint="x each element's smaller dimension" />
+          <Slider label="Bend amount" value={bendScale} min={0} max={1.5} step={0.05} onChange={setBendScale} />
+        </Group>
+
         <Group title="Pointer">
           <Slider label="Pull" value={pull} min={-100} max={100} step={1} onChange={setPull} />
           <Slider label="Reach" value={reach} min={0} max={100} step={1} onChange={setReach} />
@@ -104,7 +115,7 @@ export default function LabPage() {
           <p className="mb-2 text-[10px] leading-[15px] text-text-secondary">
             Worst case at the current safety margin, computed from each token&rsquo;s hex.
           </p>
-          {Object.entries(GUARD_TOKENS).map(([name, spec]) => {
+          {Object.entries(GUARD_TOKENS).filter(([, spec]) => spec.ratio > 1).map(([name, spec]) => {
             const lim = ceilingFor(spec.hex, spec.ratio) * safety;
             const got = ratioFromLuminance(relativeLuminance(spec.hex), lim);
             const ok = got >= spec.ratio;
@@ -144,6 +155,10 @@ export default function LabPage() {
             feather={feather}
             heatmap={heatmap}
             debugRects={debugRects}
+            refract={refract}
+            rimScale={rimScale}
+            bendScale={bendScale}
+            backdropB="#231a34"
             revision={page === "products" ? FILTERS.findIndex((f) => f.value === filter) : 99}
           />
 

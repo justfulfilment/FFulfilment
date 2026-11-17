@@ -34,7 +34,7 @@ export default function WelcomePage() {
             "rounded-[15px] bg-surface-page p-4 lg:rounded-panel lg:p-[33px]"
           }
         >
-          <ContrastField settings={FIELD_SETTINGS} />
+          <ContrastField settings={FIELD_SETTINGS} backdropB="#231a34" />
 
           <main
             className={
@@ -44,7 +44,10 @@ export default function WelcomePage() {
           >
             {/* Mobile puts the artwork first (Figma 8:1189); desktop puts it right. */}
             <Hero className="order-1 min-h-0 w-full flex-[4_1_0%] lg:order-2 lg:h-full lg:flex-[649_1_0%]" />
-            <div className="order-2 flex min-h-0 w-full flex-[6_1_0%] justify-center lg:order-1 lg:h-full lg:flex-[677_1_0%]">
+            <div
+              data-field-region="show"
+              className="order-2 flex min-h-0 w-full flex-[6_1_0%] justify-center lg:order-1 lg:h-full lg:flex-[677_1_0%]"
+            >
               <AccountAccess />
             </div>
           </main>

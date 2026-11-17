@@ -46,6 +46,7 @@ export function SegmentedToggle<T extends string>({
 
   return (
     <div
+      data-guard="surface"
       role="tablist"
       aria-label={label}
       className={cn(

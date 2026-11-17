@@ -35,7 +35,7 @@ export function NftCard({ nft, index }: { nft: Nft; index: number }) {
       style={{ "--i": index } as React.CSSProperties}
       className="stagger-item anim-rise-in shrink-0 snap-center [perspective:1200px]"
     >
-    <article
+    <article data-guard="surface"
       className={cn(
         "group/card relative flex h-full flex-col",
         "rounded-card border border-border-strong bg-surface-card p-5",

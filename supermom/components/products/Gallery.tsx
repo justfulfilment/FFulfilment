@@ -100,10 +100,11 @@ export function Gallery() {
 
   return (
     <div className="relative isolate flex min-h-0 w-full flex-1 flex-col justify-center gap-[var(--pg-gap-s)]">
-      {/* No field in here. It lives on the page background, and the control
-          row below carries data-guard="border-on-dark" so the shader holds the
-          luminance behind the arrows and dots under their 3:1 ceiling. The
-          cards are opaque surface-card and shield themselves. */}
+      {/* No field in here: it lives on the page background. The arrows and
+          dots carry data-guard="border-on-dark" so the shader holds the
+          luminance behind them under their 3:1 threshold, and the cards carry
+          data-guard="surface" so light refracts around their edges without
+          any brightness limit -- they are opaque and shield themselves. */}
       <div className="relative isolate flex min-h-0 flex-col justify-center">
 
       <div
@@ -129,9 +130,9 @@ export function Gallery() {
       </div>
       </div>
 
-      <div data-guard="border-on-dark" className="flex w-full shrink-0 items-center justify-center gap-6">
+      <div className="flex w-full shrink-0 items-center justify-center gap-6">
         <Arrow dir="prev" onClick={() => goTo(Math.max(0, active - 1))} disabled={!scrollable || active === 0} />
-        <div className="flex items-center gap-2" role="tablist" aria-label="Gallery position">
+        <div data-guard="border-on-dark" className="flex items-center gap-2" role="tablist" aria-label="Gallery position">
           {NFTS.map((nft, i) => (
             <button
               key={nft.token}
@@ -167,6 +168,7 @@ function Arrow({ dir, onClick, disabled }: { dir: "prev" | "next"; onClick: () =
       type="button"
       onClick={onClick}
       disabled={disabled}
+      data-guard="border-on-dark"
       aria-label={dir === "prev" ? "Previous artwork" : "Next artwork"}
       className={cn(
         "grid size-12 shrink-0 place-items-center rounded-control",
