@@ -34,8 +34,6 @@ export default function WelcomePage() {
             "rounded-[15px] bg-surface-page p-4 lg:rounded-panel lg:p-[33px]"
           }
         >
-          <ContrastField settings={FIELD_SETTINGS} />
-
           <main
             className={
               "relative z-10 flex min-h-0 flex-1 flex-col items-center gap-4 " +
@@ -44,10 +42,13 @@ export default function WelcomePage() {
           >
             {/* Mobile puts the artwork first (Figma 8:1189); desktop puts it right. */}
             <Hero className="order-1 min-h-0 w-full flex-[4_1_0%] lg:order-2 lg:h-full lg:flex-[649_1_0%]" />
-            <div
-              data-field-region="show"
-              className="order-2 flex min-h-0 w-full flex-[6_1_0%] justify-center lg:order-1 lg:h-full lg:flex-[677_1_0%]"
-            >
+            {/* The field lives on the sign-in column rather than the whole
+                frame. The engine composes its arc centred in whatever box it
+                is given, so putting it here is what centres the light on the
+                heading -- a full-frame canvas put the bright part out behind
+                the opaque artwork where nothing could see it. */}
+            <div className="relative order-2 flex min-h-0 w-full flex-[6_1_0%] justify-center lg:order-1 lg:h-full lg:flex-[677_1_0%]">
+              <ContrastField settings={FIELD_SETTINGS} />
               <AccountAccess />
             </div>
           </main>

@@ -61,6 +61,8 @@ export type ContrastFieldProps = {
   debugRects?: boolean;
   /** Global multiplier on the refraction. 0 turns it off. */
   refract?: number;
+  /** Specular rim brightness on each element's edge. 0 turns it off. */
+  glow?: number;
   /** Rim width as a fraction of each element's smaller dimension. */
   rimScale?: number;
   /** Bend strength as a fraction of each element's smaller dimension. */
@@ -83,6 +85,7 @@ export function ContrastField({
   settings,
   debugRects = false,
   refract = 1,
+  glow = 0.9,
   rimScale = 0.45,
   bendScale = 0.35,
   regionFeather = 0.05,
@@ -216,6 +219,7 @@ export function ContrastField({
     heatmap,
     safety,
     refract,
+    glow,
     regions: measuredRegions,
     rects,
   };

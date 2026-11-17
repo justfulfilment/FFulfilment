@@ -34,6 +34,7 @@ export default function LabPage() {
   const [heatmap, setHeatmap] = useState(false);
   const [debugRects, setDebugRects] = useState(false);
   const [refract, setRefract] = useState(1);
+  const [edgeGlow, setEdgeGlow] = useState(0.9);
   const [rimScale, setRimScale] = useState(0.45);
   const [bendScale, setBendScale] = useState(0.35);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["value"]>("top-selling");
@@ -97,6 +98,8 @@ export default function LabPage() {
         <Group title="Refraction">
           <Slider label="Overall strength" value={refract} min={0} max={3} step={0.05} onChange={setRefract}
             hint="0 turns the light-bending off entirely" />
+          <Slider label="Edge glow" value={edgeGlow} min={0} max={3} step={0.05} onChange={setEdgeGlow}
+            hint="specular highlight along each edge, scaled by the light there" />
           <Slider label="Rim width" value={rimScale} min={0} max={1.5} step={0.05} onChange={setRimScale}
             hint="x each element's smaller dimension" />
           <Slider label="Bend amount" value={bendScale} min={0} max={1.5} step={0.05} onChange={setBendScale} />
@@ -156,6 +159,7 @@ export default function LabPage() {
             heatmap={heatmap}
             debugRects={debugRects}
             refract={refract}
+            glow={edgeGlow}
             rimScale={rimScale}
             bendScale={bendScale}
             backdropB="#231a34"
