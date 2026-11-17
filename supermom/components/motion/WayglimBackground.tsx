@@ -1069,18 +1069,38 @@ float smSrgb1(float c){return c<=0.0031308?c*12.92:1.055*pow(max(c,0.0),1.0/2.4)
 vec3 smLin3(vec3 c){return vec3(smLin1(c.r),smLin1(c.g),smLin1(c.b));}
 vec3 smSrgb3(vec3 c){return vec3(smSrgb1(c.r),smSrgb1(c.g),smSrgb1(c.b));}
 float smLum(vec3 lin){return dot(lin,vec3(0.2126,0.7152,0.0722));}
+// Rounded-box field, measured in aspect-corrected space so the falloff is
+// the same width on both axes. A square-cornered rect read as a visible box
+// on the page; rounding plus an eased falloff makes it read as a pool of
+// shade instead of a frame.
 float smCeilingAt(vec2 gp){
+vec2 asp=uSmContainerPx/max(max(uSmContainerPx.x,uSmContainerPx.y),1.0);
+vec2 p=gp*asp;
 float lim=uSmCeilOpen;
+float rad=max(uSmFeather,0.0001)*0.6;
 for(int i=0;i<12;i++){
 if(i>=uSmGuardCount)break;
 vec4 g=uSmGuards[i];
-vec2 hs=g.zw*0.5;
-vec2 d=abs(gp-(g.xy+hs))-hs;
-float sd=length(max(d,0.0))+min(max(d.x,d.y),0.0);
+vec2 ctr=(g.xy+g.zw*0.5)*asp;
+vec2 hs=g.zw*0.5*asp+rad;
+vec2 d=abs(p-ctr)-hs;
+float sd=length(max(d,0.0))+min(max(d.x,d.y),0.0)-rad;
 float w=1.0-smoothstep(0.0,max(uSmFeather,0.0001),sd);
+w=w*w*(3.0-2.0*w);
 lim=min(lim,mix(uSmCeilOpen,uSmGuardCeil[i],w));
 }
 return lim;
+}
+// Soft knee. A hard min() collapses everything above the ceiling onto one
+// value, so a guarded region goes flat and its outline becomes visible. This
+// passes the page surface through untouched and then rolls off
+// asymptotically, keeping the gradient while still never reaching the
+// ceiling -- the output is strictly below it, so the guarantee is unchanged.
+float smSoftCeil(float L,float c){
+float k=c*0.55;
+if(L<=k)return L;
+float range=max(c-k,1e-5);
+return k+range*(1.0-exp(-(L-k)/range));
 }
 // --- end contrast guard ------------------------------------------------------
 uniform float uZoom;
@@ -1179,12 +1199,13 @@ float lb=smLum(bdLin);
 // ceiling carries an explicit margin for quantisation.
 float lim=smCeilingAt(gp)*uSmSafety;
 if(uSmHeatmap>0.5){
-if(lc>lim+0.0005){cfFragColor=vec4(0.85,0.05,0.12,1.0)*cfFrameCoverage(gl_FragCoord.xy);return;}
+if(lc>smSoftCeil(lc,lim)+0.0005){cfFragColor=vec4(0.85,0.05,0.12,1.0)*cfFrameCoverage(gl_FragCoord.xy);return;}
 }
-if(lc>lim&&lc>lb){
+float lt=smSoftCeil(lc,lim);
+if(lt<lc&&lc>lb){
 // Luminance is exactly linear in t along a linear-space mix, so this lands on
-// the ceiling in one closed-form step. No iteration and no approximation.
-float t=clamp((lim-lb)/max(lc-lb,1e-6),0.0,1.0);
+// the target in one closed-form step. No iteration and no approximation.
+float t=clamp((lt-lb)/max(lc-lb,1e-6),0.0,1.0);
 color.rgb=smSrgb3(mix(bdLin,compLin,t));
 }else{
 color.rgb=comp;

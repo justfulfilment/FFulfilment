@@ -30,7 +30,7 @@ export default function LabPage() {
   const [page, setPage] = useState<"welcome" | "products">("products");
   const [ceilOpen, setCeilOpen] = useState(1);
   const [safety, setSafety] = useState(0.95);
-  const [feather, setFeather] = useState(0.035);
+  const [feather, setFeather] = useState(0.08);
   const [heatmap, setHeatmap] = useState(false);
   const [debugRects, setDebugRects] = useState(false);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["value"]>("top-selling");
@@ -84,7 +84,8 @@ export default function LabPage() {
             hint="1 = untouched where nothing is guarded" />
           <Slider label="Safety margin" value={safety} min={0.8} max={1} step={0.01} onChange={setSafety}
             hint="absorbs 8-bit rounding in the render target" />
-          <Slider label="Rect feather" value={feather} min={0} max={0.2} step={0.005} onChange={setFeather} />
+          <Slider label="Falloff width" value={feather} min={0} max={0.35} step={0.005} onChange={setFeather}
+            hint="widen until the guarded area stops reading as a box" />
           <Toggle label="Failure heatmap" value={heatmap} onChange={setHeatmap}
             hint="red = the shader had to pull this pixel down" />
           <Toggle label="Show guard rects" value={debugRects} onChange={setDebugRects} />

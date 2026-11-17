@@ -49,7 +49,7 @@ export type ContrastFieldProps = {
   revision?: number;
   /** Ceiling outside every guarded rect. 1 leaves the open areas at full strength. */
   ceilOpen?: number;
-  /** Rect edge softness, in fractions of the container's smaller axis. */
+  /** Falloff width around each guarded rect, as a fraction of the longer axis. */
   feather?: number;
   /** Paint failing pixels red instead of correcting them. Diagnostic. */
   heatmap?: boolean;
@@ -65,7 +65,7 @@ export function ContrastField({
   className,
   revision = 0,
   ceilOpen = 1,
-  feather = 0.035,
+  feather = 0.08,
   heatmap = false,
   safety = 0.95,
   settings,
