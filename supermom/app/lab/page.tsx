@@ -30,9 +30,10 @@ export default function LabPage() {
   const [page, setPage] = useState<"welcome" | "products">("products");
   const [ceilOpen, setCeilOpen] = useState(1);
   const [safety, setSafety] = useState(0.95);
-  const [feather, setFeather] = useState(0.08);
+  const [feather, setFeather] = useState(0.03);
   const [heatmap, setHeatmap] = useState(false);
   const [debugRects, setDebugRects] = useState(false);
+  const [shiftY, setShiftY] = useState(0.2);
   const [refract, setRefract] = useState(1);
   const [edgeGlow, setEdgeGlow] = useState(0.9);
   const [rimScale, setRimScale] = useState(0.45);
@@ -102,6 +103,8 @@ export default function LabPage() {
             hint="specular highlight along each edge, scaled by the light there" />
           <Slider label="Rim width" value={rimScale} min={0} max={1.5} step={0.05} onChange={setRimScale}
             hint="x each element's smaller dimension" />
+          <Slider label="Composition lift" value={shiftY} min={0} max={0.5} step={0.01} onChange={setShiftY}
+            hint="slides the arc up inside the canvas; wraps past ~0.35" />
           <Slider label="Bend amount" value={bendScale} min={0} max={1.5} step={0.05} onChange={setBendScale} />
         </Group>
 
@@ -160,6 +163,7 @@ export default function LabPage() {
             debugRects={debugRects}
             refract={refract}
             glow={edgeGlow}
+            shiftY={shiftY}
             rimScale={rimScale}
             bendScale={bendScale}
             backdropB="#231a34"

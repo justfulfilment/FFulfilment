@@ -63,6 +63,9 @@ export type ContrastFieldProps = {
   refract?: number;
   /** Specular rim brightness on each element's edge. 0 turns it off. */
   glow?: number;
+  /** Slides the composition. Positive x moves it left, positive y moves it up. */
+  shiftX?: number;
+  shiftY?: number;
   /** Rim width as a fraction of each element's smaller dimension. */
   rimScale?: number;
   /** Bend strength as a fraction of each element's smaller dimension. */
@@ -85,13 +88,15 @@ export function ContrastField({
   className,
   revision = 0,
   ceilOpen = 1,
-  feather = 0.08,
+  feather = 0.03,
   heatmap = false,
   safety = 0.95,
   settings,
   debugRects = false,
   refract = 1,
   glow = 0.9,
+  shiftX = 0,
+  shiftY = 0,
   rimScale = 0.45,
   bendScale = 0.35,
   regionFeather = 0.05,
@@ -235,6 +240,8 @@ export function ContrastField({
     safety,
     refract,
     glow,
+    shiftX,
+    shiftY,
     regions: measuredRegions,
     rects,
   };
