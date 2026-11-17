@@ -34,7 +34,7 @@ export default function WelcomePage() {
             "rounded-[15px] bg-surface-page p-4 lg:rounded-panel lg:p-[33px]"
           }
         >
-          <ContrastField settings={FIELD_SETTINGS} backdropB="#231a34" />
+          <ContrastField settings={FIELD_SETTINGS} />
 
           <main
             className={
