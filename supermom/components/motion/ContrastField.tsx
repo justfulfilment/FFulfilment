@@ -173,7 +173,9 @@ export function ContrastField({
       });
     });
     setRegions(regs.slice(0, 4));
-  }, [rimScale, bendScale, regionFeather, inset]);
+    // `inset` is deliberately not a dependency: changing it resizes the
+    // canvas, and the ResizeObserver on the canvas already re-measures.
+  }, [rimScale, bendScale, regionFeather]);
 
   // Re-measure on anything that can move a guarded element.
   useEffect(() => {
