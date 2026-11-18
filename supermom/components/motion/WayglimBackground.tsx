@@ -1123,6 +1123,13 @@ uniform float uSmGlow;
 uniform vec2 uSmShift;
 float smRimIn=0.0;
 float smRimOut=0.0;
+// Hover is kept apart from the ambient rim on purpose. The ambient rim is
+// gated on the light, because it is the light arriving that reveals an edge.
+// Hover IS a light source -- pointing at something has to light it up whether
+// or not the arc happens to be passing. Folding hover into the gated rim
+// meant hovering anything outside the arc did nothing at all.
+float smHovIn=0.0;
+float smHovOut=0.0;
 // 1 anywhere inside (or just outside) an element whose contents have to stay
 // readable. The free-running glow is cut here, because one element's
 // "outside" is very often another element's inside.
@@ -1196,15 +1203,19 @@ acc+=nrm*exp(-t*t)*m.w;
 // displacement is nearly invisible against a smooth gradient.
 float core=sd/(band*0.22);
 vec4 m2=uSmGuardMeta2[i];
-float r=(exp(-core*core)*0.75+exp(-t*t)*0.35)*(1.0+m2.y*1.6);
+float r=exp(-core*core)*0.75+exp(-t*t)*0.35;
+float rh=r*m2.y*2.2;
 if(m2.x>0.5){
 // Outside the element the glow runs free; inside it stays under the
 // brightness limit, so the words' own background is never touched.
 float beyond=step(0.0,sd);
 smRimOut+=r*beyond;
 smRimIn+=r*(1.0-beyond);
+smHovOut+=rh*beyond;
+smHovIn+=rh*(1.0-beyond);
 }else{
 smRimIn+=r;
+smHovIn+=rh;
 }
 // Anything with a real brightness limit also claims a small margin beyond
 // its box, so the glow starts clear of the text rather than on its edge.
@@ -1216,7 +1227,11 @@ smProtect=max(smProtect,g*g*(3.0-2.0*g));
 }
 }
 smRimIn=min(smRimIn,2.0);
+smHovIn=min(smHovIn,2.5);
+// Still cut inside anything that has to stay readable, so a hovered element
+// can never brighten its neighbour's text.
 smRimOut=min(smRimOut,2.5)*(1.0-smProtect);
+smHovOut=min(smHovOut,3.0)*(1.0-smProtect);
 return acc;
 }
 // Visibility mask. Keeps the field inside the regions it belongs to and
@@ -1323,7 +1338,7 @@ smGp.y=1.0-smGp.y;
 // Sampling further along an axis makes the pattern appear to move the other
 // way, so +x slides the composition left and +y slides it up.
 sheetCoord+=vec2(uSmShift.x,-uSmShift.y)*max(iResolution.x,iResolution.y);
-smRimIn=0.0;smRimOut=0.0;smProtect=0.0;
+smRimIn=0.0;smRimOut=0.0;smHovIn=0.0;smHovOut=0.0;smProtect=0.0;
 if(uSmEnabled>0.5&&(uSmRefract>0.0||uSmGlow>0.0)){
 vec2 bend=smRefractAt(smGp)*uSmRefract;
 // back to GL's y-up, and into pixels
@@ -1357,8 +1372,8 @@ float smFieldLight=smLum(smLin3(clamp(color.rgb,0.0,1.0)*clamp(color.a,0.0,1.0))
 // the bright band. A lower floor left a faint glow sitting on elements the
 // arc was nowhere near.
 float smLit=smoothstep(0.06,0.24,smFieldLight);
-if(uSmEnabled>0.5&&uSmGlow>0.0&&smRimIn>0.0){
-color.rgb+=color.rgb*smRimIn*uSmGlow*smLit;
+if(uSmEnabled>0.5&&uSmGlow>0.0&&(smRimIn>0.0||smHovIn>0.0)){
+color.rgb+=color.rgb*(smRimIn*smLit+smHovIn)*uSmGlow;
 }
 color=clamp(color,0.0,1.0);
 if(uSmEnabled>0.5){
@@ -1395,8 +1410,8 @@ color.rgb=comp;
 // would break the guarantee. cfFrameCoverage still fades the frame edge.
 color.a=1.0;
 }
-if(uSmEnabled>0.5&&uSmGlow>0.0&&smRimOut>0.0){
-color.rgb=clamp(color.rgb+color.rgb*smRimOut*uSmGlow*smLit,0.0,1.0);
+if(uSmEnabled>0.5&&uSmGlow>0.0&&(smRimOut>0.0||smHovOut>0.0)){
+color.rgb=clamp(color.rgb+color.rgb*(smRimOut*smLit+smHovOut)*uSmGlow,0.0,1.0);
 }
 if(uPremultiply>0.5)color.rgb*=color.a;
 cfFragColor=color*cfFrameCoverage(gl_FragCoord.xy);
