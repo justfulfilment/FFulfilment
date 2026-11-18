@@ -1344,10 +1344,21 @@ uv.y +=uTiltX*uv.x;
 }
 DispersionSheetResult sheet=marchDispersionSheet(uv,iTime*uTimeScale);
 vec4 color=composeDispersionSheet(sheet,fragCoord,iTime,uGrainDistribution,uEdgeFade);
+// How much light the FIELD ITSELF lays down here, before the page surface is
+// mixed in and before alpha is applied. Everything about the glow is gated on
+// this one number: an element the arc is crossing lights up, an element in
+// shadow stays dark, and the glow fades out as the light moves off it.
+//
+// It has to be measured here, not later. Once the page surface is composited
+// in, every pixel carries the purple floor, so gating on the result would
+// light every element permanently -- which is exactly what it did.
+float smFieldLight=smLum(smLin3(clamp(color.rgb,0.0,1.0)*clamp(color.a,0.0,1.0)));
+// Nothing at all until the light genuinely arrives, full strength through
+// the bright band. A lower floor left a faint glow sitting on elements the
+// arc was nowhere near.
+float smLit=smoothstep(0.06,0.24,smFieldLight);
 if(uSmEnabled>0.5&&uSmGlow>0.0&&smRimIn>0.0){
-// Multiplied by the light already present, so an element sitting in shadow
-// stays dark and one the arc is crossing lights up along its edge.
-color.rgb+=color.rgb*smRimIn*uSmGlow;
+color.rgb+=color.rgb*smRimIn*uSmGlow*smLit;
 }
 color=clamp(color,0.0,1.0);
 if(uSmEnabled>0.5){
@@ -1385,7 +1396,7 @@ color.rgb=comp;
 color.a=1.0;
 }
 if(uSmEnabled>0.5&&uSmGlow>0.0&&smRimOut>0.0){
-color.rgb=clamp(color.rgb+color.rgb*smRimOut*uSmGlow,0.0,1.0);
+color.rgb=clamp(color.rgb+color.rgb*smRimOut*uSmGlow*smLit,0.0,1.0);
 }
 if(uPremultiply>0.5)color.rgb*=color.a;
 cfFragColor=color*cfFrameCoverage(gl_FragCoord.xy);
