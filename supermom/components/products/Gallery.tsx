@@ -132,7 +132,7 @@ export function Gallery() {
 
       <div className="flex w-full shrink-0 items-center justify-center gap-6">
         <Arrow dir="prev" onClick={() => goTo(Math.max(0, active - 1))} disabled={!scrollable || active === 0} />
-        <div data-guard="border-on-dark" className="flex items-center gap-2" role="tablist" aria-label="Gallery position">
+        <div data-guard="surface" className="flex items-center gap-2 rounded-pill border border-accent-like bg-surface-sunken px-3 py-2" role="tablist" aria-label="Gallery position">
           {NFTS.map((nft, i) => (
             <button
               key={nft.token}
@@ -168,12 +168,16 @@ function Arrow({ dir, onClick, disabled }: { dir: "prev" | "next"; onClick: () =
       type="button"
       onClick={onClick}
       disabled={disabled}
-      data-guard="border-on-dark"
+      data-guard="surface"
       aria-label={dir === "prev" ? "Previous artwork" : "Next artwork"}
       className={cn(
         "grid size-12 shrink-0 place-items-center rounded-control",
-        "border border-border-on-dark text-text-primary",
-        "hover:border-[var(--color-border-on-dark-hover)] hover:bg-[var(--color-tint-on-dark)]",
+        // accent-like, not border-on-dark: with the glow unguarded here the field
+        // behind this control sweeps the whole brightness range, and around
+        // L=0.10-0.14 neither the dark fill nor a border-on-dark outline reaches
+        // 3:1. The paler outline covers that window; above it the fill takes over.
+        "border border-accent-like bg-surface-sunken text-text-primary",
+        "hover:bg-[var(--color-surface-sunken-hover)]",
         pressable,
       )}
     >

@@ -3,6 +3,14 @@
 /* Fine-pointer only: the dot-grid reveal is a cursor affordance. */
 @custom-variant pointer-fine (@media (hover: hover) and (pointer: fine));
 
+/* The custom pointer hides the real one while it is running. The attribute is
+   set by the component itself, so the real cursor comes straight back if it
+   bails out: coarse pointer, reduced motion, or effects paused. */
+html[data-custom-pointer="on"],
+html[data-custom-pointer="on"] * {
+  cursor: none !important;
+}
+
 /* ==========================================================================
    Supermom design tokens
    Measured from Figma file nEJCs6idYWferFTWIWYOmS.

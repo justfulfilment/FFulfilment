@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { MotionProvider } from "@/components/motion/MotionProvider";
+import { CustomPointer } from "@/components/motion/CustomPointer";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -54,7 +55,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full">
-        <MotionProvider>{children}</MotionProvider>
+        <MotionProvider>
+          {children}
+          <CustomPointer />
+        </MotionProvider>
       </body>
     </html>
   );

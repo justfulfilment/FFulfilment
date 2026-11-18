@@ -20,12 +20,16 @@ export function SocialButton({
   return (
     <button
       type="button"
-      data-guard="border-on-dark"
+      data-guard="surface"
       aria-label={`Continue with ${name}`}
       className={cn(
         "flex h-12 flex-1 items-center justify-center rounded-control",
-        "border border-border-on-dark text-text-icon",
-        "hover:border-[var(--color-border-on-dark-hover)] hover:bg-[var(--color-tint-on-dark)]",
+        // accent-like, not border-on-dark: with the glow unguarded here the field
+        // behind this control sweeps the whole brightness range, and around
+        // L=0.10-0.14 neither the dark fill nor a border-on-dark outline reaches
+        // 3:1. The paler outline covers that window; above it the fill takes over.
+        "border border-accent-like bg-surface-sunken text-text-icon",
+        "hover:bg-[var(--color-surface-sunken-hover)]",
         "shadow-[0_2px_5px_0_rgba(15,8,26,0.15)]",
         pressable,
         className,

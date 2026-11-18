@@ -9,6 +9,7 @@ import {
   TIGHTEST_CEILING,
   hexToUnitRgb,
   isGuardToken,
+  rimMaySitOutside,
 } from "@/lib/contrast";
 
 /**
@@ -94,7 +95,7 @@ export function ContrastField({
   settings,
   debugRects = false,
   refract = 1,
-  glow = 0.9,
+  glow = 0.6,
   shiftX = 0,
   shiftY = 0,
   rimScale = 0.45,
@@ -107,6 +108,8 @@ export function ContrastField({
   const hostRef = useRef<HTMLDivElement>(null);
   const [rects, setRects] = useState<GuardRect[]>([]);
   const [measuredRegions, setRegions] = useState<GuardRegion[]>([]);
+  const elsRef = useRef<HTMLElement[]>([]);
+  const rectsRef = useRef<GuardRect[]>([]);
 
   const measure = useCallback(() => {
     const host = hostRef.current;
@@ -125,6 +128,7 @@ export function ContrastField({
     const major = Math.max(box.width, box.height);
 
     const found: GuardRect[] = [];
+    const els: HTMLElement[] = [];
     root.querySelectorAll<HTMLElement>("[data-guard]").forEach((el) => {
       const token = el.dataset.guard ?? "";
       // An unrecognised tag gets the tightest ceiling in the set rather than
@@ -149,10 +153,18 @@ export function ContrastField({
         radius: Math.min(radiusPx / major, minDim * 0.5),
         band: clamp(minDim * rimScale, 0.004, 0.06),
         strength: clamp(minDim * bendScale, 0.001, 0.03),
+        rimOutside: rimMaySitOutside(token),
+        hover: 0,
       });
+      els.push(el);
     });
 
-    setRects(capRects(found));
+    const capped = capRects(found);
+    // Only meaningful while nothing was merged away; a merged rect has no
+    // single element behind it to hover.
+    elsRef.current = capped.length === found.length ? els : [];
+    rectsRef.current = capped;
+    setRects(capped);
 
     // Regions say where the field may show at all, and which surface each
     // part of it sits on. Measured the same way as the guards so they stay
@@ -223,6 +235,48 @@ export function ContrastField({
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, [measure, revision]);
+
+  // Hover: the element under the pointer brightens its own edge. The eased
+  // values are written straight into the live rects rather than through
+  // state, because this runs every frame and a re-render per frame would be
+  // wasteful -- the shader reads the same objects.
+  useEffect(() => {
+    const host = hostRef.current;
+    const root = host?.parentElement;
+    if (!root) return undefined;
+
+    let target = -1;
+    let raf = 0;
+
+    const step = () => {
+      const rs = rectsRef.current;
+      let moving = false;
+      for (let i = 0; i < rs.length; i += 1) {
+        const want = i === target ? 1 : 0;
+        const cur = rs[i].hover ?? 0;
+        const next = cur + (want - cur) * 0.18;
+        rs[i].hover = Math.abs(next - want) < 0.004 ? want : next;
+        if (rs[i].hover !== want) moving = true;
+      }
+      raf = moving || target >= 0 ? window.requestAnimationFrame(step) : 0;
+    };
+    const kick = () => { if (!raf) raf = window.requestAnimationFrame(step); };
+
+    const onMove = (e: PointerEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-guard]");
+      const next = el ? elsRef.current.indexOf(el) : -1;
+      if (next !== target) { target = next; kick(); }
+    };
+    const onLeave = () => { target = -1; kick(); };
+
+    root.addEventListener("pointermove", onMove, { passive: true });
+    root.addEventListener("pointerleave", onLeave, { passive: true });
+    return () => {
+      root.removeEventListener("pointermove", onMove);
+      root.removeEventListener("pointerleave", onLeave);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [rects]);
 
   // A revision bump means React just changed the layout; measure after paint.
   useEffect(() => {

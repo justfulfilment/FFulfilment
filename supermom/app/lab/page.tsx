@@ -35,7 +35,7 @@ export default function LabPage() {
   const [debugRects, setDebugRects] = useState(false);
   const [shiftY, setShiftY] = useState(0.2);
   const [refract, setRefract] = useState(1);
-  const [edgeGlow, setEdgeGlow] = useState(0.9);
+  const [edgeGlow, setEdgeGlow] = useState(0.6);
   const [rimScale, setRimScale] = useState(0.45);
   const [bendScale, setBendScale] = useState(0.35);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["value"]>("top-selling");

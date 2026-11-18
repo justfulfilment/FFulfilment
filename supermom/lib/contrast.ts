@@ -96,6 +96,22 @@ export function isGuardToken(value: string): value is GuardToken {
 }
 
 /**
+ * Whether the edge glow may sit outside this element, free of the brightness
+ * limit.
+ *
+ * Text and solid panels: yes. The glow lands beyond the element's box, and
+ * the words or content inside keep the protected background they already had.
+ *
+ * Thin outlines: no. There the outline itself is what has to stay visible,
+ * and it sits exactly where the glow would go, so a bright glow against it
+ * would wipe it out.
+ */
+export function rimMaySitOutside(token: string): boolean {
+  if (!isGuardToken(token)) return false;
+  return GUARD_TOKENS[token].role !== "graphic";
+}
+
+/**
  * The tightest ceiling in the whole exposed set. Used as the safe default for
  * anything tagged without a recognised token, and as the global fallback when
  * there are more guard regions than the shader has slots for.
