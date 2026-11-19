@@ -38,7 +38,7 @@ export default function WelcomePage() {
               larger and runs off every edge rather than stopping at one. The
               page frame clips it, which is what makes it a bleed and not a
               fade. */}
-          <ContrastField settings={FIELD_SETTINGS} inset="-25% -15% -5% -15%" shiftY={0.2} />
+          <ContrastField settings={FIELD_SETTINGS} inset="-25% -15% -5% -15%" shiftX={0.22} shiftY={0.2} />
 
           <main
             className={

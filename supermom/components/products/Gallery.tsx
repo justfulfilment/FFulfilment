@@ -1,189 +1,156 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
-import { pressable } from "@/components/ui/Dead";
 import { NftCard } from "./NftCard";
-import { NFTS } from "@/lib/products";
+import { sortForFilter, type GalleryFilter } from "@/lib/products";
+import { useEffectsState } from "@/components/motion/MotionProvider";
 
 /**
- * Figma build note 7:1189: the gallery drags on desktop too, with a grab
- * cursor, snap to card, and arrows and dots staying in sync.
+ * The NFT gallery: a bounded region the cards scroll vertically inside.
  *
- * Native overflow scrolling with scroll-snap does the physics, so trackpad,
- * wheel, touch and keyboard all work for free; the pointer handlers only add
- * click-and-drag for mouse users.
+ * The page itself is locked to the viewport on desktop, so the gallery takes
+ * whatever height is left between the filter tabs and the footer and scrolls
+ * its own content. Scrolling is plain native overflow -- no wheel or touch
+ * capture -- so trackpad, wheel, touch and keyboard all behave normally, and
+ * `overscroll-contain` stops the gesture leaking out at the ends.
+ *
+ * Below `lg` the page scrolls normally and the grid just flows, because a
+ * scroll region inside a scrolling page is a trap on a phone.
+ *
+ * The soft top and bottom edges are two separate jobs:
+ *
+ *  1. A STATIONARY alpha mask on the scrollport. This is what guarantees the
+ *     disappearance: card, text, border, shadow and glow all reach zero alpha
+ *     before the clipping boundary, so there is no hard horizontal cut. It is
+ *     a mask, not an overlay strip, so the live background stays visible
+ *     straight through the fading cards. It sits on the scrolling element
+ *     itself, whose mask is painted in its own box, so it stays put while the
+ *     content scrolls past.
+ *  2. A scroll-linked per-card blur, which only adds the sense of cards being
+ *     drawn through that boundary.
+ *
+ * Blur alone was not enough: a blurred card still had a clipped silhouette
+ * because its alpha was high where the scrollport ended.
+ *
+ * Progress is read straight from each card's live position, so it tracks the
+ * scroll exactly and reverses naturally with no easing lag. `animation-timeline:
+ * view()` would express this natively, but Safari does not support it yet and
+ * Safari is the browser these pages are being reviewed in, so the measured
+ * version is the one that actually runs. It reads layout for the handful of
+ * cards in one batch inside a single rAF and writes only inline styles -- no
+ * React re-render per scroll event.
  */
-export function Gallery() {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const [scrollable, setScrollable] = useState(false);
-  const drag = useRef({ startX: 0, startScroll: 0, moved: false, armed: false });
 
-  const sync = useCallback(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    const cards = Array.from(el.children) as HTMLElement[];
-    if (!cards.length) return;
-    // When every card already fits there is nothing to page through: the
-    // indicator rests on the first card and the arrows turn off, rather than
-    // sitting there enabled and doing nothing.
-    const canScroll = el.scrollWidth > el.clientWidth + 1;
-    setScrollable(canScroll);
-    if (!canScroll) { setActive(0); return; }
-    const mid = el.scrollLeft + el.clientWidth / 2;
-    let best = 0;
-    let bestD = Infinity;
-    cards.forEach((c, i) => {
-      const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
-      if (d < bestD) { bestD = d; best = i; }
-    });
-    setActive(best);
-  }, []);
+/** How far the per-card blur reaches in from each edge. */
+const FADE = 110;
+
+export function Gallery({ filter }: { filter: GalleryFilter }) {
+  const cards = sortForFilter(filter);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { effectsOff } = useEffectsState();
+
+  const paint = useCallback(() => {
+    const box = scrollRef.current;
+    if (!box) return;
+    const view = box.getBoundingClientRect();
+
+    // Fade depth is derived from the card and the gallery, not from the
+    // viewport. A viewport-based depth looked fine until the gallery was
+    // short, and then it ate the first row's bid controls at rest. This
+    // guarantees at least one whole row of sharp space between the two fades.
+    const first = box.firstElementChild as HTMLElement | null;
+    const cardH = first ? first.getBoundingClientRect().height : 0;
+    if (cardH > 0) {
+      const room = (box.clientHeight - cardH) / 2 - 6;
+      box.style.setProperty("--gal-fade", `${Math.round(Math.max(22, Math.min(110, room)))}px`);
+    }
+    // Below lg the region is not scrollable and every card stays crisp.
+    const bounded = box.scrollHeight > box.clientHeight + 1;
+
+    for (const el of Array.from(box.children) as HTMLElement[]) {
+      if (!bounded) {
+        el.style.opacity = "";
+        el.style.filter = "";
+        el.style.transform = "";
+        continue;
+      }
+      const r = el.getBoundingClientRect();
+      // Positive only once the card has actually begun to cross an edge. An
+      // earlier version added a head start here, which left a whole row
+      // sitting permanently blurred in the middle of the gallery.
+      const overTop = view.top - r.top;
+      const overBottom = r.bottom - view.bottom;
+      const t = Math.min(1, Math.max(0, Math.max(overTop, overBottom)) / FADE);
+      if (t <= 0) {
+        el.style.opacity = "";
+        el.style.filter = "";
+        el.style.transform = "";
+        continue;
+      }
+      const e = t * t * (3 - 2 * t);
+      // The mask does the disappearing, so this only has to soften. Alpha is
+      // left alone apart from a light touch, or the two would compound into
+      // an early fade well inside the sharp region.
+      el.style.opacity = String(1 - e * 0.35);
+      el.style.filter = effectsOff ? "" : `blur(${(e * 5).toFixed(2)}px)`;
+      el.style.transform = `scale(${(1 - e * 0.03).toFixed(4)})`;
+    }
+  }, [effectsOff]);
 
   useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    sync();
-    el.addEventListener("scroll", sync, { passive: true });
-    window.addEventListener("resize", sync);
-    return () => {
-      el.removeEventListener("scroll", sync);
-      window.removeEventListener("resize", sync);
+    const box = scrollRef.current;
+    if (!box) return undefined;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => { raf = 0; paint(); });
     };
-  }, [sync]);
-
-  const goTo = useCallback((i: number) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const card = el.children[i] as HTMLElement | undefined;
-    if (!card) return;
-    el.scrollTo({
-      left: card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2,
-      behavior: "smooth",
-    });
-  }, []);
-
-  // Click-and-drag for mouse users. Touch and trackpad already scroll natively.
-  //
-  // The pointer is captured only once the cursor has actually travelled past a
-  // threshold. Capturing on pointerdown retargets every subsequent pointer
-  // event to the track, which swallows the click on whatever was underneath,
-  // so BID, the heart and the dots all stopped working for mouse users.
-  function onPointerDown(e: React.PointerEvent) {
-    if (e.pointerType !== "mouse" || e.button !== 0) return;
-    const el = trackRef.current;
-    if (!el) return;
-    drag.current = { startX: e.clientX, startScroll: el.scrollLeft, moved: false, armed: true };
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    const el = trackRef.current;
-    if (!el || !drag.current.armed) return;
-    const dx = e.clientX - drag.current.startX;
-    if (!drag.current.moved) {
-      if (Math.abs(dx) <= 4) return; // still a click, leave the page alone
-      drag.current.moved = true;
-      setDragging(true);
-      el.setPointerCapture(e.pointerId);
-    }
-    el.scrollLeft = drag.current.startScroll - dx;
-  }
-  function endDrag(e: React.PointerEvent) {
-    const el = trackRef.current;
-    if (drag.current.moved && el?.hasPointerCapture(e.pointerId)) {
-      el.releasePointerCapture(e.pointerId);
-    }
-    drag.current.armed = false;
-    setDragging(false);
-  }
+    paint();
+    box.addEventListener("scroll", onScroll, { passive: true });
+    const ro = new ResizeObserver(onScroll);
+    ro.observe(box);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      box.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      ro.disconnect();
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [paint]);
 
   return (
-    <div className="relative isolate flex min-h-0 w-full flex-1 flex-col justify-center gap-[var(--pg-gap-s)]">
-      {/* No field in here: it lives on the page background. The arrows and
-          dots carry data-guard="border-on-dark" so the shader holds the
-          luminance behind them under their 3:1 threshold, and the cards carry
-          data-guard="surface" so light refracts around their edges without
-          any brightness limit -- they are opaque and shield themselves. */}
-      <div className="relative isolate flex min-h-0 flex-col justify-center">
-
-      <div
-        ref={trackRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        // a drag that moved should not fire the click underneath it
-        onClickCapture={(e) => {
-          if (drag.current.moved) { e.preventDefault(); e.stopPropagation(); drag.current.moved = false; }
-        }}
-        className={cn(
-          "flex w-full snap-x snap-mandatory items-center gap-6 overflow-x-auto overscroll-x-contain",
-          "px-[max(0px,calc((100%-var(--pg-deck-w))/2))] py-[var(--pg-gap-s)]",
-          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          dragging ? "cursor-grabbing select-none" : "cursor-grab",
-        )}
-      >
-        {NFTS.map((nft, i) => (
-          <NftCard key={nft.token} nft={nft} index={i} />
-        ))}
-      </div>
-      </div>
-
-      <div className="flex w-full shrink-0 items-center justify-center gap-6">
-        <Arrow dir="prev" onClick={() => goTo(Math.max(0, active - 1))} disabled={!scrollable || active === 0} />
-        <div data-guard="surface" className="flex items-center gap-2 rounded-pill border border-accent-like bg-surface-sunken px-3 py-2" role="tablist" aria-label="Gallery position">
-          {NFTS.map((nft, i) => (
-            <button
-              key={nft.token}
-              type="button"
-              role="tab"
-              aria-selected={i === active}
-              aria-label={`Go to ${nft.title}`}
-              onClick={() => goTo(i)}
-              className={cn(
-                "grid size-6 place-items-center rounded-pill",
-                pressable, "hover:translate-y-0",
-              )}
-            >
-              <span
-                className={cn(
-                  "block h-2 rounded-pill transition-[width,background-color] duration-normal ease-out-quart",
-                  "motion-reduce:transition-none",
-                  i === active ? "w-5 bg-text-primary" : "w-2 bg-border-on-dark",
-                )}
-              />
-            </button>
-          ))}
-        </div>
-        <Arrow dir="next" onClick={() => goTo(Math.min(NFTS.length - 1, active + 1))} disabled={!scrollable || active === NFTS.length - 1} />
-      </div>
-    </div>
-  );
-}
-
-function Arrow({ dir, onClick, disabled }: { dir: "prev" | "next"; onClick: () => void; disabled: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      data-guard="surface"
-      aria-label={dir === "prev" ? "Previous artwork" : "Next artwork"}
+    <div
+      ref={scrollRef}
+      // A region, so screen readers can tell it apart from the page.
+      role="region"
+      aria-label="NFT gallery"
+      tabIndex={-1}
       className={cn(
-        "grid size-12 shrink-0 place-items-center rounded-control",
-        // accent-like, not border-on-dark: with the glow unguarded here the field
-        // behind this control sweeps the whole brightness range, and around
-        // L=0.10-0.14 neither the dark fill nor a border-on-dark outline reaches
-        // 3:1. The paler outline covers that window; above it the fill takes over.
-        "border border-accent-like bg-surface-sunken text-text-primary",
-        "hover:bg-[var(--color-surface-sunken-hover)]",
-        pressable,
+        // Tracks are the card's own width rather than equal fractions of the
+        // container, and the grid is centred. Fractional tracks were the real
+        // cause of the wide column spacing: each track grew to a quarter of
+        // the page and the fixed-width card floated in the middle of it, so
+        // the visible separation was track slack, not the gap.
+        "grid w-full justify-center",
+        "grid-cols-[repeat(1,var(--pg-card-w))]",
+        "sm:grid-cols-[repeat(2,var(--pg-card-w))]",
+        "xl:grid-cols-[repeat(3,var(--pg-card-w))]",
+        "2xl:grid-cols-[repeat(4,var(--pg-card-w))]",
+        "gap-x-[var(--pg-card-gap)] gap-y-[var(--pg-gap-m)]",
+        // Bounded and scrollable only where the page itself does not scroll.
+        "lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain",
+        // Room at the ends so the first and last rows can each be brought
+        // fully into the sharp middle, and at the sides so card shadows are
+        // not clipped by the scrollport.
+        "lg:px-[var(--pg-gap-s)] lg:py-[var(--gal-fade)]",
+        "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "gallery-fade",
       )}
     >
-      <svg viewBox="0 0 16 16" className="size-4 fill-none stroke-current" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        {dir === "prev" ? <path d="M10 3 5 8l5 5" /> : <path d="M6 3l5 5-5 5" />}
-      </svg>
-    </button>
+      {cards.map((nft, i) => (
+        <NftCard key={nft.token} nft={nft} index={i} />
+      ))}
+    </div>
   );
 }

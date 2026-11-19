@@ -7,7 +7,7 @@ import { AccountAccess } from "@/components/welcome/AccountAccess";
 import { Hero } from "@/components/welcome/Hero";
 import { Footer } from "@/components/welcome/Footer";
 import { Nav } from "@/components/products/Nav";
-import { SectionHeading, DottedDepth } from "@/components/products/SectionHeading";
+import { SectionHeading } from "@/components/products/SectionHeading";
 import { SegmentedToggle } from "@/components/ui/SegmentedToggle";
 import { Gallery } from "@/components/products/Gallery";
 
@@ -174,11 +174,10 @@ export default function LabPage() {
             <>
               <Nav />
               <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center" style={{ gap: "var(--pg-gap-s)" }}>
-                <DottedDepth />
                 <SectionHeading className="shrink-0" />
                 <SegmentedToggle segments={FILTERS} value={filter} onChange={setFilter}
                   label="Filter the collection" idBase="lab-filters" className="w-full max-w-[324px] shrink-0" />
-                <Gallery key={filter} />
+                <Gallery key={filter} filter={filter} />
               </div>
               <div className="relative z-10 shrink-0"><Footer /></div>
             </>

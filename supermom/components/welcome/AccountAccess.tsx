@@ -86,17 +86,25 @@ export function AccountAccess({ className }: { className?: string }) {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={isCode ? "code" : "form"}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: duration.short, ease: ease.outCubic }}
+              // Outgoing copy softens and leaves with gentle acceleration;
+              // incoming copy resolves into focus with gentle deceleration.
+              // The blur stays small and brief on purpose -- enough to read as
+              // a focus pull, not as fog.
+              initial={{ opacity: 0, filter: "blur(6px)" }}
+              animate={{ opacity: 1, filter: "blur(0px)" }}
+              exit={{
+                opacity: 0,
+                filter: "blur(6px)",
+                transition: { duration: duration.short, ease: ease.inQuart },
+              }}
+              transition={{ duration: duration.normal, ease: ease.outQuart }}
               className="flex flex-col items-center gap-2"
             >
-              <h1 data-guard="text-primary" className="font-display font-semibold leading-[1.1] tracking-[-0.015em] text-balance text-text-primary lg:whitespace-nowrap"
+              <h1 data-guard="text-primary" className="edge-lit font-display font-semibold leading-[1.1] tracking-[-0.015em] text-balance text-text-primary lg:whitespace-nowrap"
                 style={{ fontSize: "var(--wl-h1)" }}>
                 {isCode ? "Check your inbox." : "Meet your next icon."}
               </h1>
-              <p data-guard="text-eyebrow" className="max-w-[358px] text-pretty font-sans text-[13px] leading-5 text-text-eyebrow lg:text-[14px] lg:leading-[22px]">
+              <p data-guard="text-eyebrow" className="edge-lit-soft max-w-[358px] text-pretty font-sans text-[13px] leading-5 text-text-eyebrow lg:text-[14px] lg:leading-[22px]">
                 {isCode
                   ? "We sent a 6-digit code to your email. Enter it to sign in."
                   : "Discover supermom. A collection celebrating the strength and spirit of motherhood."}
@@ -143,8 +151,12 @@ export function AccountAccess({ className }: { className?: string }) {
                 animate={{
                   height: showProviders ? "auto" : 0,
                   opacity: showProviders ? 1 : 0,
+                  filter: showProviders ? "blur(0px)" : "blur(5px)",
                 }}
-                transition={{ duration: duration.slow, ease: ease.outQuart }}
+                transition={{
+                  duration: showProviders ? duration.slow : duration.normal,
+                  ease: showProviders ? ease.outQuart : ease.inQuart,
+                }}
                 style={{ overflow: "hidden" }}
                 aria-hidden={!showProviders}
               >
@@ -171,17 +183,16 @@ export function AccountAccess({ className }: { className?: string }) {
         href="/products"
         className={cn(
           pressable,
-          "mt-8 rounded-chip px-2 py-[2px] -mx-2 -my-[2px] font-sans text-[13px] font-medium leading-5 text-text-primary",
-          "lg:absolute lg:left-1/2 lg:mt-0 lg:-translate-x-1/2",
-          "lg:hover:translate-y-[calc(-1*var(--motion-lift))] lg:hover:-translate-x-1/2",
+          "edge-lit-soft rounded-chip px-2 py-[2px] -mx-2 -my-[2px] font-sans text-[13px] font-medium leading-5 text-text-primary",
+          "hover:translate-y-[calc(-1*var(--motion-lift))]",
         )}
-        // Pinned to where it would sit in flow, not to a fraction of the
-        // column. The three controls above it are fixed height (48 + 74 + 154),
-        // so a purely fractional pin collided with the wallet row on shorter
-        // windows. This sums the real stack, which is still exactly 742.5px at
-        // the design height and always clears the providers block below it.
+        // In normal flow, directly under the form. It used to be pinned to a
+        // computed offset that assumed the providers block was always there,
+        // so it stayed put when Log in collapsed that block and left a gap.
+        // Now it simply follows the form's height, and rides the same
+        // collapse animation for free.
         data-guard="text-primary"
-        style={{ top: "var(--wl-explore-top)" }}
+        style={{ marginTop: "var(--wl-gap)" }}
       >
         Explore the collection
       </Link>

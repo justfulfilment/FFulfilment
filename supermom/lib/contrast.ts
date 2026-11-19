@@ -77,6 +77,8 @@ export const GUARD_TOKENS = {
   "border-on-dark": { hex: "#a495b2", ratio: 3, role: "graphic" },
   "border-strong": { hex: "#b292c6", ratio: 3, role: "graphic" },
   "text-icon": { hex: "#f8e4fe", ratio: 3, role: "graphic" },
+  /** A pale outline on a see-through control: the provider buttons. */
+  "border-accent": { hex: "#e4b9e4", ratio: 3, role: "graphic" },
   /**
    * An opaque element: light bends around its edge, but it shields whatever
    * is behind it, so no brightness limit applies. Ratio 1 means "no limit".

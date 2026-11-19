@@ -7,7 +7,7 @@ import { Footer } from "@/components/welcome/Footer";
 import { SegmentedToggle } from "@/components/ui/SegmentedToggle";
 import { Gallery } from "@/components/products/Gallery";
 import { Nav } from "@/components/products/Nav";
-import { DottedDepth, SectionHeading } from "@/components/products/SectionHeading";
+import { SectionHeading } from "@/components/products/SectionHeading";
 
 const FILTERS = [
   { value: "top-selling" as const, label: "Top Selling" },
@@ -46,7 +46,6 @@ export default function ProductsPage() {
         <Nav />
 
         <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center" style={{ gap: "var(--pg-gap-s)" }}>
-          <DottedDepth />
           <SectionHeading className="shrink-0" />
 
           <SegmentedToggle
@@ -58,9 +57,10 @@ export default function ProductsPage() {
             className="w-full max-w-[324px] shrink-0"
           />
 
-          {/* The filter is a demo control: the deck is the same four cards.
-              Keyed so switching replays the staggered entrance. */}
-          <Gallery key={filter} />
+          {/* Keyed on the filter so switching re-sorts, replays the staggered
+              entrance and resets the gallery to the top rather than leaving it
+              scrolled into a position that no longer exists. */}
+          <Gallery key={filter} filter={filter} />
         </main>
 
         <div className="relative z-10 shrink-0">

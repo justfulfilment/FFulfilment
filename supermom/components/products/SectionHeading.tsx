@@ -5,41 +5,22 @@ import { cn } from "@/lib/cn";
 export function SectionHeading({ className }: { className?: string }) {
   return (
     <div className={cn("relative flex w-full flex-col items-center gap-2 text-center", className)}>
-      <p data-guard="text-eyebrow" className="font-sans text-[10px] font-medium uppercase leading-4 tracking-[0.14em] text-text-eyebrow lg:text-[11px]">
+      <p data-guard="text-eyebrow" className="edge-lit-soft font-sans text-[10px] font-medium uppercase leading-4 tracking-[0.14em] text-text-eyebrow lg:text-[11px]">
         The Supermom Collection
       </p>
       <h1
         data-guard="text-heading-warm"
-        className="max-w-[974px] text-balance font-display font-semibold leading-[1.05] tracking-[-0.02em] text-text-heading-warm"
+        className="edge-lit max-w-[974px] text-balance font-display font-semibold leading-[1.05] tracking-[-0.02em] text-text-heading-warm"
         style={{ fontSize: "var(--pg-h1)" }}
       >
         A place to display your masterpiece
       </h1>
-      <p data-guard="text-eyebrow" className="text-pretty font-sans text-[15px] font-medium leading-[1.4] text-text-eyebrow lg:text-[clamp(15px,calc(100dvh*0.0178),24px)]">
+      <p data-guard="text-eyebrow" className="edge-lit-soft text-pretty font-sans text-[15px] font-medium leading-[1.4] text-text-eyebrow lg:text-[clamp(15px,calc(100dvh*0.0178),24px)]">
         Extraordinary mothers. Art with a story to tell.
       </p>
-      <p data-guard="text-eyebrow" className="font-sans text-[12px] leading-[18px] text-text-eyebrow">
+      <p data-guard="text-eyebrow" className="edge-lit-soft font-sans text-[12px] leading-[18px] text-text-eyebrow">
         Collection preview &middot; Demo bids only
       </p>
     </div>
-  );
-}
-
-/** Figma 1:1429 "Dotted depth": a dot field behind the heading, fading out.
- *  Decorative, so it is hidden from assistive tech and kept faint enough not
- *  to eat the contrast budget of the text in front of it. */
-export function DottedDepth() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 h-[240px] max-h-full"
-      style={{
-        backgroundImage:
-          "radial-gradient(circle, color-mix(in oklab, var(--color-text-primary) 6%, transparent) 1px, transparent 1px)",
-        backgroundSize: "26px 26px",
-        maskImage: "radial-gradient(70% 100% at 50% 0%, #000 0%, transparent 75%)",
-        WebkitMaskImage: "radial-gradient(70% 100% at 50% 0%, #000 0%, transparent 75%)",
-      }}
-    />
   );
 }

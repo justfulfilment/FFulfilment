@@ -8,28 +8,49 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## How to explain this project to Fil
+## Two working modes
 
-Fil is a designer moving into design engineering. He reads design language
-fluently and shader/graphics jargon not at all. Default to **plain mode**:
+**Explain mode** - describe the visible result and the controls behind it in
+basic English, using familiar design concepts: layers, masks, opacity,
+padding, a spotlight, frosted glass. Technical detail only where it actually
+helps. No code unless asked.
 
-- Lead with what changed **on screen**, not what changed in the code.
-- Reach for design analogies first: layers, masks, opacity, blend modes,
-  tracking, padding, a spotlight, frosted glass. Not "fragment", "uniform",
-  "signed distance field", "luminance ceiling", "premultiplied alpha".
-- Keep the measurements, they are the point of this project, but say what
-  each one *means*. "4.6:1 against a 4.5 floor, so it passes with almost no
-  room to spare" rather than "peakL=0.1239".
-- Name files only when he needs to open one. No line numbers unprompted.
-- When a trade-off exists, state it as a design choice with two outcomes,
-  not as an implementation detail.
+**Build mode** - make the change, then briefly say what changed and what it
+looks like now.
 
-He can switch at any time by saying:
+Fil says "explain mode" or "build mode" to switch, and the mode carries until
+he changes it. Default to Build mode for a request that clearly asks for work,
+and Explain mode for a question.
 
-- **"plain"** - the default above.
-- **"deep"** - full technical detail, shader internals, exact numbers.
-- **"show me"** - skip the prose, give screenshots and measurements only.
+Keep the measurements in both modes, they are the point of this project, but
+say what each one means: "4.6:1 against a 4.5 floor, so it passes with almost
+no room to spare", not "peakL=0.1239". Name files only when he needs to open
+one.
 
-Carry the mode until he changes it. If a change genuinely cannot be
-explained without one technical idea, introduce that one idea in a sentence
-and then use it.
+## Shared names for parts of the interface
+
+Use these exact names in both directions, so a request and its answer always
+point at the same thing.
+
+| Name | What it is |
+| --- | --- |
+| navbar | the light bar across the top of the product page |
+| eyebrow | the small uppercase line above a heading |
+| heading | the large display line on either page |
+| description | the sentence under the heading |
+| demo status | "Collection preview - Demo bids only" |
+| filter tabs | Top Selling / Most Bid / Top Rated |
+| NFT gallery | the scrolling region holding the cards |
+| NFT cards | the individual artwork cards |
+| authentication form | the sign-up / log in block on the entry page |
+| provider buttons | the social and wallet buttons |
+| collection link | "Explore the collection" |
+| footer | supermom.app and the links beside it |
+
+## Three separate lighting systems
+
+Keep these apart; do not substitute one for another.
+
+1. **Atmospheric background** - the drifting glow and grain behind everything.
+2. **Edge lighting** - local light along the edges of text and components.
+3. **Transition blur** - short-lived blur for state changes and gallery edges.

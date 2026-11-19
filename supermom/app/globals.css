@@ -110,7 +110,6 @@ html[data-custom-pointer="on"] * {
   --wl-head: auto;
   --wl-gap: 2rem;
   --wl-bottom: auto;
-  --wl-explore-top: auto;
   --wl-h1: 32px;
   --wl-hero-pad: 1.25rem;
 }
@@ -123,12 +122,6 @@ html[data-custom-pointer="on"] * {
     --wl-bottom: clamp(8px, calc(var(--col-h) * 0.1862), 174.5px);
     --wl-h1: clamp(30px, calc(var(--col-h) * 0.0512), 48px);
     --wl-hero-pad: clamp(16px, calc(var(--col-h) * 0.0854), 80px);
-    /* Where "Explore the collection" is pinned: the real sum of the stack
-       above it (top padding + heading + the 276px of fixed controls + the
-       four gaps), so it can never collide with the providers block. */
-    --wl-explore-top: calc(
-      var(--wl-pt) + var(--wl-head) + 276px + 4 * var(--wl-gap)
-    );
   }
 }
 
@@ -326,6 +319,92 @@ html[data-custom-pointer="on"] * {
   0%   { transform: translate3d(0, 0, 0); }
   50%  { transform: translate3d(6%, 4%, 0); }
   100% { transform: translate3d(0, 0, 0); }
+}
+
+/* ==========================================================================
+   NFT gallery soft edges.
+
+   A stationary alpha mask on the scrollport. Because it lives on the
+   scrolling element itself, the browser paints it in that element's own box,
+   so it stays still while the cards travel through it. Everything a card is
+   made of -- surface, text, border, shadow, glow -- reaches zero alpha before
+   the clipping boundary, so there is no hard horizontal cut, and because it
+   is a mask rather than a cover strip the live background still shows through
+   the fading cards.
+
+   The stops are deliberately uneven rather than a straight ramp: a plain
+   two-stop gradient leaves a visible band where the fade begins.
+
+   Depth scales with the viewport rather than a fixed percentage, and the
+   scrollport carries matching top and bottom padding so the first and last
+   rows can still be brought fully into the sharp middle.
+   ========================================================================== */
+:root {
+  --gal-fade: 0px;
+}
+
+@media (min-width: 1024px) {
+  /* The component overrides --gal-fade from the real card and gallery
+     heights; this is only the value used before it has measured. */
+  .gallery-fade {
+    --gal-fade: 44px;
+    --gal-mask: linear-gradient(
+      to bottom,
+      transparent 0,
+      rgba(0, 0, 0, 0.12) calc(var(--gal-fade) * 0.3),
+      rgba(0, 0, 0, 0.55) calc(var(--gal-fade) * 0.64),
+      rgba(0, 0, 0, 0.88) calc(var(--gal-fade) * 0.85),
+      #000 var(--gal-fade),
+      #000 calc(100% - var(--gal-fade)),
+      rgba(0, 0, 0, 0.88) calc(100% - var(--gal-fade) * 0.85),
+      rgba(0, 0, 0, 0.55) calc(100% - var(--gal-fade) * 0.64),
+      rgba(0, 0, 0, 0.12) calc(100% - var(--gal-fade) * 0.3),
+      transparent 100%
+    );
+    -webkit-mask-image: var(--gal-mask);
+    mask-image: var(--gal-mask);
+  }
+}
+
+/* ==========================================================================
+   Edge lighting on text.
+   The shader lights the EDGES OF BOXES, which is right for panels and wrong
+   for words: a box around a line of text is a rectangle, not the letters.
+   Light on glyphs has to come from the glyphs themselves, so this is a text
+   shadow -- it follows every contour and counter exactly, and costs nothing.
+   Cool blue through the middle, a pink accent outside it, pale at the core,
+   matching the atmosphere and the cursor halo.
+   ========================================================================== */
+@utility edge-lit {
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--color-text-icon) 30%, transparent),
+    0 0 7px color-mix(in oklab, var(--color-glow-blue) 20%, transparent),
+    0 0 16px color-mix(in oklab, var(--color-glow-pink) 14%, transparent);
+  transition: text-shadow var(--duration-slow) var(--ease-out-quart);
+}
+
+/* Small copy gets a fraction of it. A glow sized for a 96px headline turns
+   12px text into mush. */
+@utility edge-lit-soft {
+  text-shadow:
+    0 0 1px color-mix(in oklab, var(--color-text-icon) 18%, transparent),
+    0 0 5px color-mix(in oklab, var(--color-glow-blue) 10%, transparent);
+  transition: text-shadow var(--duration-slow) var(--ease-out-quart);
+}
+
+/* Pointing at it brings the light up, the same idea as the panel edges. */
+@media (hover: hover) and (pointer: fine) {
+  .edge-lit:hover,
+  .edge-lit-soft:hover {
+    text-shadow:
+      0 0 1px color-mix(in oklab, var(--color-text-icon) 55%, transparent),
+      0 0 10px color-mix(in oklab, var(--color-glow-blue) 34%, transparent),
+      0 0 22px color-mix(in oklab, var(--color-glow-pink) 24%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edge-lit, .edge-lit-soft { transition: none; }
 }
 
 @utility anim-fade-in { animation: motion-fade-in var(--tw-duration, var(--duration-normal)) var(--tw-ease, var(--ease-out-cubic)) both; }

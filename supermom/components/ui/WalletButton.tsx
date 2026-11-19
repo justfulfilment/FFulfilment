@@ -30,7 +30,7 @@ export function WalletButton({
     <div className="group relative flex-1">
       <button
         type="button"
-        data-guard="surface"
+        data-guard="border-accent"
         aria-label={`Connect ${name}`}
         aria-busy={pending || undefined}
         disabled={disabled}
@@ -41,8 +41,9 @@ export function WalletButton({
         // behind this control sweeps the whole brightness range, and around
         // L=0.10-0.14 neither the dark fill nor a border-on-dark outline reaches
         // 3:1. The paler outline covers that window; above it the fill takes over.
-          "border border-accent-like bg-surface-sunken text-text-icon",
-          "hover:bg-[var(--color-surface-sunken-hover)]",
+          // Transparent at rest, same reasoning as the social buttons.
+          "border border-accent-like text-text-icon",
+          "hover:bg-[var(--color-tint-on-dark)] hover:border-[var(--color-border-strong)]",
           pressable,
         )}
       >

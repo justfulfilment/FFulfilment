@@ -55,6 +55,7 @@ export function CustomPointer() {
     const past = Array.from({ length: TRAIL }, () => ({ x: -100, y: -100 }));
     let solid = 0;
     let solidTarget = 0;
+    let speed = 0;
     let seen = false;
     let raf = 0;
 
@@ -74,17 +75,30 @@ export function CustomPointer() {
     const onLeave = () => { root.style.opacity = "0"; seen = false; };
     const onEnter = () => { if (seen) root.style.opacity = "1"; };
 
-    const frame = () => {
+    const frame = (now: number) => {
       // Same easing idea as the field's pointer: a fixed fraction of the
       // remaining distance each frame, so it settles smoothly.
-      pos.x += (target.x - pos.x) * 0.3;
-      pos.y += (target.y - pos.y) * 0.3;
+      const dx = target.x - pos.x;
+      const dy = target.y - pos.y;
+      pos.x += dx * 0.3;
+      pos.y += dy * 0.3;
       solid += (solidTarget - solid) * 0.16;
 
-      head.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%)`;
-      halo.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%) scale(${1 - solid * 0.45})`;
-      halo.style.opacity = String(1 - solid);
-      head.style.transform += ` scale(${1 + solid * 0.25})`;
+      // How fast the pointer is actually travelling, smoothed. The trail is
+      // tied to this so it stops accumulating the moment the pointer rests,
+      // instead of piling every dot up underneath the head.
+      speed += (Math.min(1, Math.hypot(dx, dy) / 26) - speed) * 0.18;
+
+      // At rest the halo breathes. A still image cannot show a rhythm, so
+      // this is a restrained one: a slow, shallow swell, fading out as soon
+      // as the pointer moves so it never fights the motion.
+      const pulse = 1 + Math.sin(now / 1100) * 0.07 * (1 - speed);
+
+      head.style.transform =
+        `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%) scale(${1 + solid * 0.25})`;
+      halo.style.transform =
+        `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%) scale(${(1 - solid * 0.45) * pulse})`;
+      halo.style.opacity = String((1 - solid) * (0.82 + 0.18 * (1 - speed)));
 
       // Each trail dot chases the one in front of it, which gives the lag a
       // natural curve instead of a straight line of copies.
@@ -97,7 +111,7 @@ export function CustomPointer() {
         if (el) {
           const k = 1 - i / TRAIL;
           el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) scale(${k * 0.8})`;
-          el.style.opacity = String(k * 0.38 * (1 - solid));
+          el.style.opacity = String(k * 0.38 * (1 - solid) * speed);
         }
         px = p.x; py = p.y;
       }
@@ -120,7 +134,10 @@ export function CustomPointer() {
 
   if (off) return null;
 
-  const dot = "var(--color-accent-deep)";
+  // accent-deep, held back to roughly 60% of its previous strength so the
+  // body reads as the pointer's centre rather than competing with the halo.
+  // This is opacity, not a different colour and not a smaller cursor.
+  const dot = "color-mix(in oklab, var(--color-accent-deep) 60%, transparent)";
   const size = "calc(var(--radius-thumb) * 2)";
 
   return (
@@ -138,9 +155,16 @@ export function CustomPointer() {
           width: "calc(var(--radius-thumb) * 9)",
           height: "calc(var(--radius-thumb) * 9)",
           borderRadius: "999px",
+          // The character of the background lighting Fil marked in cyan,
+          // compacted to pointer scale: a pale luminous core, cool blue
+          // through the middle, a pink accent outside it, then a soft
+          // atmospheric falloff. Not the large sweep itself.
           background:
-            "radial-gradient(circle, color-mix(in oklab, var(--color-glow-pink) 42%, transparent) 0%, " +
-            "color-mix(in oklab, var(--color-accent-primary) 26%, transparent) 38%, transparent 68%)",
+            "radial-gradient(circle, " +
+            "color-mix(in oklab, var(--color-text-icon) 58%, transparent) 0%, " +
+            "color-mix(in oklab, var(--color-glow-blue) 40%, transparent) 26%, " +
+            "color-mix(in oklab, var(--color-glow-pink) 26%, transparent) 52%, " +
+            "transparent 74%)",
         }}
       />
       {Array.from({ length: TRAIL }, (_, i) => (
