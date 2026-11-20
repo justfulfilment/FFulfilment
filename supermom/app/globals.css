@@ -40,6 +40,9 @@ html[data-custom-pointer="on"] * {
   --color-border-on-dark: #a495b2;
   --color-border-on-light: #806a92;
   --color-border-strong: #b292c6;
+  /* The NFT card outline: the same lilac at 60% alpha. A colour token, not an
+     opacity on the card, so artwork, text and controls stay at full strength. */
+  --color-card-outline: color-mix(in oklab, #b292c6 60%, transparent);
 
   /* text */
   --color-text-primary: #f4eef9;     /* 9.11:1 on surface-page */
@@ -340,24 +343,26 @@ html[data-custom-pointer="on"] * {
    rows can still be brought fully into the sharp middle.
    ========================================================================== */
 :root {
-  --gal-fade: 0px;
+  --gal-band: 0px;
 }
 
-/* The component overrides --gal-fade from the real card and gallery heights;
-   the value here is only what is used before it has measured. */
+/* The component sets --gal-band from the gallery's real height; this is only
+   the value used before it has measured. The transparency mask and the
+   progressive-blur bands share the same depth so they line up exactly. */
+:root { --gal-band: 44px; }
+
 .gallery-fade {
-    --gal-fade: 44px;
     --gal-mask: linear-gradient(
       to bottom,
       transparent 0,
-      rgba(0, 0, 0, 0.12) calc(var(--gal-fade) * 0.3),
-      rgba(0, 0, 0, 0.55) calc(var(--gal-fade) * 0.64),
-      rgba(0, 0, 0, 0.88) calc(var(--gal-fade) * 0.85),
-      #000 var(--gal-fade),
-      #000 calc(100% - var(--gal-fade)),
-      rgba(0, 0, 0, 0.88) calc(100% - var(--gal-fade) * 0.85),
-      rgba(0, 0, 0, 0.55) calc(100% - var(--gal-fade) * 0.64),
-      rgba(0, 0, 0, 0.12) calc(100% - var(--gal-fade) * 0.3),
+      rgba(0, 0, 0, 0.12) calc(var(--gal-band) * 0.3),
+      rgba(0, 0, 0, 0.55) calc(var(--gal-band) * 0.64),
+      rgba(0, 0, 0, 0.88) calc(var(--gal-band) * 0.85),
+      #000 var(--gal-band),
+      #000 calc(100% - var(--gal-band)),
+      rgba(0, 0, 0, 0.88) calc(100% - var(--gal-band) * 0.85),
+      rgba(0, 0, 0, 0.55) calc(100% - var(--gal-band) * 0.64),
+      rgba(0, 0, 0, 0.12) calc(100% - var(--gal-band) * 0.3),
       transparent 100%
     );
     -webkit-mask-image: var(--gal-mask);

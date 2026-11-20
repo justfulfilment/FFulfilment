@@ -44,13 +44,13 @@ export function NftCard({ nft, index }: { nft: Nft; index: number }) {
     <article data-guard="surface"
       className={cn(
         "group/card relative flex h-full flex-col",
-        "rounded-card border border-border-strong bg-surface-card p-5",
+        "rounded-card border border-[var(--color-card-outline)] bg-surface-card p-5",
         "shadow-[0_12px_30px_0_rgba(15,8,26,0.2)]",
         "w-[var(--pg-card-w)] gap-[var(--pg-card-gap)]",
         // No transform of any kind on the card: the border lighting and the
         // shadow carry the hover state instead.
         "transition-[border-color,box-shadow] duration-normal ease-out-cubic",
-        "hover:border-[var(--color-border-on-dark-hover)]",
+        "hover:border-[color-mix(in_oklab,var(--color-border-strong)_85%,transparent)]",
         "hover:shadow-[0_16px_38px_0_rgba(15,8,26,0.28)]",
         "motion-reduce:transition-none",
       )}

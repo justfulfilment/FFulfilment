@@ -64,7 +64,7 @@ export default function ProductsPage() {
         </main>
 
         <div className="relative z-10 shrink-0">
-          <Footer />
+          <Footer showWordmark={false} />
         </div>
       </div>
     </div>

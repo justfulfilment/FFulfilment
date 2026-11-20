@@ -1116,6 +1116,10 @@ uniform vec4 uSmGuardMeta[24];
 uniform vec4 uSmGuardMeta2[24];
 uniform float uSmRefract;
 uniform float uSmGlow;
+// A slow swell on the edge lighting. Driven from absolute clock time, so it
+// is continuous and never restarts when the pointer moves or enters a new
+// element -- restarting was what read as a brightness jump.
+uniform float uSmBreath;
 // Horizontal composition offset. The engine can shift its pattern vertically
 // (via the position setting) but has no horizontal equivalent, and the canvas
 // has to stay oversized so the effect bleeds off the page -- so the pattern is
@@ -1373,7 +1377,7 @@ float smFieldLight=smLum(smLin3(clamp(color.rgb,0.0,1.0)*clamp(color.a,0.0,1.0))
 // arc was nowhere near.
 float smLit=smoothstep(0.06,0.24,smFieldLight);
 if(uSmEnabled>0.5&&uSmGlow>0.0&&(smRimIn>0.0||smHovIn>0.0)){
-color.rgb+=color.rgb*(smRimIn*smLit+smHovIn)*uSmGlow;
+color.rgb+=color.rgb*(smRimIn*smLit+smHovIn)*uSmGlow*uSmBreath;
 }
 color=clamp(color,0.0,1.0);
 if(uSmEnabled>0.5){
@@ -1411,7 +1415,7 @@ color.rgb=comp;
 color.a=1.0;
 }
 if(uSmEnabled>0.5&&uSmGlow>0.0&&(smRimOut>0.0||smHovOut>0.0)){
-color.rgb=clamp(color.rgb+color.rgb*(smRimOut*smLit+smHovOut)*uSmGlow,0.0,1.0);
+color.rgb=clamp(color.rgb+color.rgb*(smRimOut*smLit+smHovOut)*uSmGlow*uSmBreath,0.0,1.0);
 }
 if(uPremultiply>0.5)color.rgb*=color.a;
 cfFragColor=color*cfFrameCoverage(gl_FragCoord.xy);
@@ -1463,6 +1467,7 @@ e.uniform1f(n("uSmCeilOpen"),g.ceilOpen),e.uniform1f(n("uSmFeather"),g.feather),
 e.uniform1f(n("uSmSafety"),typeof g.safety==="number"?g.safety:0.95),
 e.uniform1f(n("uSmRefract"),typeof g.refract==="number"?g.refract:0),
 e.uniform1f(n("uSmGlow"),typeof g.glow==="number"?g.glow:0),
+e.uniform1f(n("uSmBreath"),0.88+0.12*Math.sin(performance.now()/4200*Math.PI*2)),
 e.uniform2f(n("uSmShift"),typeof g.shiftX==="number"?g.shiftX:0,typeof g.shiftY==="number"?g.shiftY:0),
 e.uniform1i(n("uSmGuardCount"),cnt),e.uniform4fv(n("uSmGuards[0]"),xy),e.uniform4fv(n("uSmGuardMeta[0]"),mt),e.uniform4fv(n("uSmGuardMeta2[0]"),m2),
 e.uniform1i(n("uSmRegionCount"),rc),e.uniform4fv(n("uSmRegions[0]"),rxy),e.uniform4fv(n("uSmRegionMeta[0]"),rmt)}

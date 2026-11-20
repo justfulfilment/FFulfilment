@@ -22,7 +22,7 @@ const linkClass = cn(
  * destinations, so rather than invent policy pages they are live-feeling
  * controls that navigate nowhere.
  */
-export function Footer() {
+export function Footer({ showWordmark = true }: { showWordmark?: boolean } = {}) {
   const { paused, prefersReduced, togglePaused } = useEffectsState();
 
   const pauseControl = (
@@ -40,10 +40,12 @@ export function Footer() {
   );
 
   return (
-    <footer data-guard="text-eyebrow" className="flex w-full flex-col items-center gap-3 lg:h-16 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
-      <p className="order-1 font-sans text-[20px] font-medium leading-8 text-text-primary lg:order-2 lg:text-[24px]">
-        supermom.app
-      </p>
+    <footer data-guard="text-eyebrow" className="flex w-full flex-col items-center gap-3 lg:h-auto lg:min-h-8 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
+      {showWordmark && (
+        <p className="order-1 font-sans text-[20px] font-medium leading-8 text-text-primary lg:order-2 lg:text-[24px]">
+          supermom.app
+        </p>
+      )}
 
       {/* One row on mobile, split left/right on desktop */}
       <div className="order-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 lg:order-1 lg:contents">

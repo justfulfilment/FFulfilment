@@ -134,8 +134,29 @@ export function ContrastField({
       // An unrecognised tag gets the tightest ceiling in the set rather than
       // being skipped: a typo must fail safe, not fail open.
       const ceil = isGuardToken(token) ? GUARD_CEILINGS[token] : TIGHTEST_CEILING;
-      const r = el.getBoundingClientRect();
+      let r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
+
+      // Clip to whatever scroll region the element lives in. The lighting is
+      // drawn on a canvas that knows nothing about the gallery's clipping, so
+      // a card scrolled out of the gallery was still asking for a card-shaped
+      // glow at its real position -- which is how an empty lit rectangle
+      // appeared below the gallery, down near the footer. Only the part of an
+      // element that is actually visible inside its scroll region may be lit.
+      let visible = 1;
+      const clipper = el.closest<HTMLElement>("[data-guard-clip]");
+      if (clipper) {
+        const c = clipper.getBoundingClientRect();
+        const top = Math.max(r.top, c.top);
+        const bottom = Math.min(r.bottom, c.bottom);
+        const left = Math.max(r.left, c.left);
+        const right = Math.min(r.right, c.right);
+        if (bottom - top < 1 || right - left < 1) return; // fully clipped away
+        visible = ((bottom - top) * (right - left)) / (r.height * r.width);
+        // A sliver would otherwise get a bright rim drawn along the clip line.
+        if (visible < 0.12) return;
+        r = new DOMRect(left, top, right - left, bottom - top);
+      }
 
       const minDim = Math.min(r.width, r.height) / major;
       const radiusPx = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
@@ -160,8 +181,8 @@ export function ContrastField({
         // Text gets no rim from here at all. A rim traces the element's
         // bounding box, and the box around a line of type is a rectangle,
         // not the letters. Glyph lighting is the CSS text shadow instead.
-        band: isText ? 0 : clamp(minDim * rimScale, 0.004, EDGE_MAX),
-        strength: isText ? 0 : clamp(minDim * bendScale, 0.001, 0.012),
+        band: isText ? 0 : clamp(minDim * rimScale, 0.004, EDGE_MAX) * visible,
+        strength: isText ? 0 : clamp(minDim * bendScale, 0.001, 0.012) * visible,
         rimOutside: rimMaySitOutside(token),
         hover: 0,
       });
@@ -232,15 +253,36 @@ export function ContrastField({
       if (!raf) raf = window.requestAnimationFrame(pump);
     };
 
-    frame.addEventListener("transitionend", kick);
+    // A card's own hover transition (border colour, shadow) fired this and
+    // re-measured every element, which is what made the hover light flicker.
+    // Only layout-affecting transitions matter here.
+    const LAYOUT_PROPS = /height|width|transform|margin|padding|top|left|gap/;
+    const onTransition = (e: Event) => {
+      const name = (e as TransitionEvent).propertyName;
+      if (!name || LAYOUT_PROPS.test(name)) kick();
+    };
+    frame.addEventListener("transitionend", onTransition);
     frame.addEventListener("animationend", kick);
     window.addEventListener("resize", measure);
 
+    // Scroll regions inside the frame move their contents without any resize
+    // or transition, so without this the rects went stale the moment the
+    // gallery scrolled and the lighting stayed behind where the cards were.
+    let sRaf = 0;
+    const onScroll = () => {
+      if (sRaf) return;
+      sRaf = window.requestAnimationFrame(() => { sRaf = 0; measure(); });
+    };
+    const clippers = Array.from(frame.querySelectorAll<HTMLElement>("[data-guard-clip]"));
+    clippers.forEach((c) => c.addEventListener("scroll", onScroll, { passive: true }));
+
     return () => {
       ro.disconnect();
-      frame.removeEventListener("transitionend", kick);
+      frame.removeEventListener("transitionend", onTransition);
       frame.removeEventListener("animationend", kick);
       window.removeEventListener("resize", measure);
+      clippers.forEach((c) => c.removeEventListener("scroll", onScroll));
+      if (sRaf) window.cancelAnimationFrame(sRaf);
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, [measure, revision]);
