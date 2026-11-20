@@ -75,43 +75,51 @@ export function CustomPointer() {
     const onLeave = () => { root.style.opacity = "0"; seen = false; };
     const onEnter = () => { if (seen) root.style.opacity = "1"; };
 
+    let last = 0;
     const frame = (now: number) => {
-      // Same easing idea as the field's pointer: a fixed fraction of the
-      // remaining distance each frame, so it settles smoothly.
+      // Time based rather than a fixed fraction per frame, so the follow and
+      // the trail decay behave the same on 60Hz and 120Hz displays.
+      const dt = last ? Math.min(64, now - last) : 16;
+      last = now;
+      const k = (tau: number) => 1 - Math.exp(-dt / tau);
+
       const dx = target.x - pos.x;
       const dy = target.y - pos.y;
-      pos.x += dx * 0.3;
-      pos.y += dy * 0.3;
-      solid += (solidTarget - solid) * 0.16;
+      pos.x += dx * k(42);
+      pos.y += dy * k(42);
+      solid += (solidTarget - solid) * k(90);
 
       // How fast the pointer is actually travelling, smoothed. The trail is
       // tied to this so it stops accumulating the moment the pointer rests,
       // instead of piling every dot up underneath the head.
-      speed += (Math.min(1, Math.hypot(dx, dy) / 26) - speed) * 0.18;
+      speed += (Math.min(1, Math.hypot(dx, dy) / 26) - speed) * k(80);
 
-      // At rest the halo breathes. A still image cannot show a rhythm, so
-      // this is a restrained one: a slow, shallow swell, fading out as soon
-      // as the pointer moves so it never fights the motion.
-      const pulse = 1 + Math.sin(now / 1100) * 0.07 * (1 - speed);
+      // At rest the halo breathes, barely. Opacity only -- a scale pulse made
+      // the whole cloud visibly swell, which is exactly what drew the eye.
+      const pulse = 1 + Math.sin(now / 1400) * 0.05 * (1 - speed);
 
       head.style.transform =
         `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%) scale(${1 + solid * 0.25})`;
+      // Hover shrinks and fades the halo; it must never expand into a
+      // spotlight. Peak opacity is roughly half what it was.
       halo.style.transform =
-        `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%) scale(${(1 - solid * 0.45) * pulse})`;
-      halo.style.opacity = String((1 - solid) * (0.82 + 0.18 * (1 - speed)));
+        `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%) scale(${1 - solid * 0.45})`;
+      halo.style.opacity = String((1 - solid) * 0.46 * pulse);
 
       // Each trail dot chases the one in front of it, which gives the lag a
       // natural curve instead of a straight line of copies.
       let px = pos.x, py = pos.y;
       for (let i = 0; i < TRAIL; i += 1) {
         const p = past[i];
-        p.x += (px - p.x) * 0.34;
-        p.y += (py - p.y) * 0.34;
+        p.x += (px - p.x) * k(36);
+        p.y += (py - p.y) * k(36);
         const el = trailRefs.current[i];
         if (el) {
-          const k = 1 - i / TRAIL;
-          el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) scale(${k * 0.8})`;
-          el.style.opacity = String(k * 0.38 * (1 - solid) * speed);
+          const fade = 1 - i / TRAIL;
+          el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) scale(${fade * 0.8})`;
+          // Quieter than the pointer itself, and multiplied by speed so it
+          // disappears completely the moment the pointer stops.
+          el.style.opacity = String(fade * 0.16 * (1 - solid) * speed);
         }
         px = p.x; py = p.y;
       }
@@ -152,8 +160,8 @@ export function CustomPointer() {
         ref={haloRef}
         className="absolute left-0 top-0"
         style={{
-          width: "calc(var(--radius-thumb) * 9)",
-          height: "calc(var(--radius-thumb) * 9)",
+          width: "calc(var(--radius-thumb) * 4.5)",
+          height: "calc(var(--radius-thumb) * 4.5)",
           borderRadius: "999px",
           // The character of the background lighting Fil marked in cyan,
           // compacted to pointer scale: a pale luminous core, cool blue
@@ -161,10 +169,10 @@ export function CustomPointer() {
           // atmospheric falloff. Not the large sweep itself.
           background:
             "radial-gradient(circle, " +
-            "color-mix(in oklab, var(--color-text-icon) 58%, transparent) 0%, " +
-            "color-mix(in oklab, var(--color-glow-blue) 40%, transparent) 26%, " +
-            "color-mix(in oklab, var(--color-glow-pink) 26%, transparent) 52%, " +
-            "transparent 74%)",
+            "color-mix(in oklab, var(--color-text-icon) 26%, transparent) 0%, " +
+            "color-mix(in oklab, var(--color-glow-blue) 15%, transparent) 30%, " +
+            "color-mix(in oklab, var(--color-glow-pink) 9%, transparent) 56%, " +
+            "transparent 76%)",
         }}
       />
       {Array.from({ length: TRAIL }, (_, i) => (
@@ -183,9 +191,12 @@ export function CustomPointer() {
           height: size,
           borderRadius: "999px",
           background: dot,
+          // A delicate light-catching rim and nothing else. This used to carry
+          // a second pink bloom on top of the halo's pink, which was half the
+          // reason the pointer read as a cloud.
           boxShadow:
-            "0 0 0 1px color-mix(in oklab, var(--color-border-strong) 70%, transparent), " +
-            "0 0 calc(var(--radius-thumb) * 1.6) color-mix(in oklab, var(--color-glow-pink) 55%, transparent)",
+            "0 0 0 1px color-mix(in oklab, var(--color-border-strong) 60%, transparent), " +
+            "0 0 calc(var(--radius-thumb) * 0.5) color-mix(in oklab, var(--color-glow-blue) 22%, transparent)",
         }}
       />
     </div>

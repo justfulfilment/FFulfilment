@@ -26,8 +26,13 @@ export const FIELD_SETTINGS: Record<string, unknown> = {
       color: 35,
       /** Grain lift near the cursor. Kept, by request. */
       grain: 50,
-      /** Light lift near the cursor. Safe under the clamp. */
-      glow: 25,
+      /**
+       * Light lift near the cursor. Cut from 25: the background brightening
+       * under the pointer stacked with the halo and the head's own bloom in
+       * the same spot, and three sources at once is what made the pointer
+       * read as a cloud. The grain stays as it was.
+       */
+      glow: 8,
       /**
        * Exponential follow. The brief asks for 8-12% per frame; the engine
        * expresses the same idea as a time constant, which is frame-rate

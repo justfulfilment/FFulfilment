@@ -134,7 +134,7 @@ html[data-custom-pointer="on"] * {
      on a short phone instead of pushing the page into a scroll. */
   --pg-nav-h: clamp(48px, calc(100dvh * 0.066), 56px);
   --pg-h1: clamp(22px, calc(100dvh * 0.0355), 32px);
-  --pg-card-w: 248px;
+  --pg-card-w: min(320px, calc(100vw - 48px));
   --pg-art-h: clamp(92px, calc((100dvh - 470px) * 0.43), 190px);
   --pg-card-gap: clamp(8px, calc(100dvh * 0.0118), 12px);
   --pg-gap-s: clamp(5px, calc(100dvh * 0.0085), 10px);
@@ -343,10 +343,9 @@ html[data-custom-pointer="on"] * {
   --gal-fade: 0px;
 }
 
-@media (min-width: 1024px) {
-  /* The component overrides --gal-fade from the real card and gallery
-     heights; this is only the value used before it has measured. */
-  .gallery-fade {
+/* The component overrides --gal-fade from the real card and gallery heights;
+   the value here is only what is used before it has measured. */
+.gallery-fade {
     --gal-fade: 44px;
     --gal-mask: linear-gradient(
       to bottom,
@@ -363,7 +362,18 @@ html[data-custom-pointer="on"] * {
     );
     -webkit-mask-image: var(--gal-mask);
     mask-image: var(--gal-mask);
-  }
+
+    /* A slim scrollbar is the quietest way to show there is more below, now
+       that the arrows and dots are gone. */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-border-strong) 55%, transparent) transparent;
+}
+
+.gallery-fade::-webkit-scrollbar { width: 6px; }
+.gallery-fade::-webkit-scrollbar-track { background: transparent; }
+.gallery-fade::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-border-strong) 55%, transparent);
 }
 
 /* ==========================================================================

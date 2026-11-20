@@ -11,8 +11,15 @@ import { formatCountdown, formatLikes, type Nft } from "@/lib/products";
  * two-tier radius system is deliberate and is NOT corrected to concentric.
  * Inner radii are derived from the outer token so they cannot drift.
  *
- * The card carries Figma's rotateX(-10.471) rotateY(10.309) tilt, which
- * straightens on hover (brief section 9.4).
+ * Flat and upright. The card used to carry Figma's rotateX(-10.471)
+ * rotateY(10.309) tilt with a perspective wrapper, straightening on hover,
+ * and the artwork scaled up underneath it. All of that is gone: the gallery
+ * now gets its sense of entering and leaving from scrolling, fade and the
+ * boundary blur, so simulated depth on top of it was fighting for the same
+ * attention.
+ *
+ * The timer chip keeps its -translate-x-1/2, which is positioning rather than
+ * decoration.
  */
 export function NftCard({ nft, index }: { nft: Nft; index: number }) {
   const [remaining, setRemaining] = useState(nft.endsIn);
@@ -28,12 +35,11 @@ export function NftCard({ nft, index }: { nft: Nft; index: number }) {
   const likes = nft.likes + (liked ? 1 : 0);
 
   return (
-    // Two elements on purpose: the staggered entrance animates `transform` on
-    // the wrapper, so it cannot flatten the card's own 3D tilt (a keyframe with
-    // fill:both otherwise wins over the class transform and the tilt is lost).
+    // The wrapper carries the staggered entrance so the card itself stays a
+    // plain, untransformed rectangle.
     <div
       style={{ "--i": index } as React.CSSProperties}
-      className="stagger-item anim-rise-in shrink-0 snap-center [perspective:1200px]"
+      className="stagger-item anim-rise-in"
     >
     <article data-guard="surface"
       className={cn(
@@ -41,16 +47,17 @@ export function NftCard({ nft, index }: { nft: Nft; index: number }) {
         "rounded-card border border-border-strong bg-surface-card p-5",
         "shadow-[0_12px_30px_0_rgba(15,8,26,0.2)]",
         "w-[var(--pg-card-w)] gap-[var(--pg-card-gap)]",
-        // the designed tilt, straightening on hover
-        "[transform:rotateX(-10.471deg)_rotateY(10.309deg)]",
-        "transition-transform duration-normal ease-out-cubic",
-        "hover:[transform:rotateX(-3deg)_rotateY(3deg)_translateY(calc(-1*var(--motion-lift)))]",
-        "motion-reduce:transition-none motion-reduce:[transform:none] motion-reduce:hover:[transform:none]",
+        // No transform of any kind on the card: the border lighting and the
+        // shadow carry the hover state instead.
+        "transition-[border-color,box-shadow] duration-normal ease-out-cubic",
+        "hover:border-[var(--color-border-on-dark-hover)]",
+        "hover:shadow-[0_16px_38px_0_rgba(15,8,26,0.28)]",
+        "motion-reduce:transition-none",
       )}
     >
       {/* Creator. The text column takes min-w-0 so long names ellipsis instead
           of pushing the like chip out of the card. */}
-      <div className="flex w-full items-center gap-3">
+      <div className="flex w-full items-center gap-2 lg:gap-3">
         <Avatar nft={nft} />
         <div className="flex min-w-0 flex-1 flex-col">
           <p className="truncate font-sans text-[13px] font-medium leading-5 text-text-primary" title={nft.creator}>
@@ -89,12 +96,14 @@ export function NftCard({ nft, index }: { nft: Nft; index: number }) {
           alt={`${nft.title} by ${nft.creator}`}
           width={546}
           height={606}
-          loading={index < 2 ? "eager" : "lazy"}
+          // Two full rows at the widest layout, so artwork is decoded before
+          // it reaches the gallery viewport. Below that the coloured tint
+          // placeholder was showing first as cards scrolled in.
+          loading={index < 8 ? "eager" : "lazy"}
+          fetchPriority={index < 4 ? "high" : "auto"}
           decoding="async"
           className={cn(
             "absolute inset-0 size-full object-cover object-top",
-            "transition-transform duration-normal ease-out-cubic",
-            "group-hover/card:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover/card:scale-100",
           )}
         />
         <div

@@ -137,12 +137,18 @@ export function ContrastField({
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
 
-      // One rule for every element, scaled by its own size. The smaller
-      // dimension is what governs how "thick" the element reads, so a 48px
-      // button bends light noticeably and a 20px line of text gets a fine
-      // rim. Thicker glass bends more; same idea.
       const minDim = Math.min(r.width, r.height) / major;
       const radiusPx = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+
+      // This is EDGE lighting, so its width belongs to an edge, not to the
+      // element's area. Scaling it by the smaller dimension -- which is what
+      // "scaled to its size" was taken to mean -- gave the navbar a 25px rim
+      // and an NFT card a 109px one, at which point it stopped reading as a
+      // lit edge and became a violet panel behind the card. The cap keeps
+      // every element near the navbar's value, which is the look being
+      // aimed at.
+      const EDGE_MAX = 0.016;
+      const isText = !rimMaySitOutside(token) || token.startsWith("text-");
 
       found.push({
         x: (r.left - box.left) / box.width,
@@ -151,8 +157,11 @@ export function ContrastField({
         h: r.height / box.height,
         ceil,
         radius: Math.min(radiusPx / major, minDim * 0.5),
-        band: clamp(minDim * rimScale, 0.004, 0.06),
-        strength: clamp(minDim * bendScale, 0.001, 0.03),
+        // Text gets no rim from here at all. A rim traces the element's
+        // bounding box, and the box around a line of type is a rectangle,
+        // not the letters. Glyph lighting is the CSS text shadow instead.
+        band: isText ? 0 : clamp(minDim * rimScale, 0.004, EDGE_MAX),
+        strength: isText ? 0 : clamp(minDim * bendScale, 0.001, 0.012),
         rimOutside: rimMaySitOutside(token),
         hover: 0,
       });
