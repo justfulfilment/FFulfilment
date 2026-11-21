@@ -335,34 +335,37 @@ html[data-custom-pointer="on"] * {
    is a mask rather than a cover strip the live background still shows through
    the fading cards.
 
-   The stops are deliberately uneven rather than a straight ramp: a plain
-   two-stop gradient leaves a visible band where the fade begins.
+   The stops trace a smoothstep curve rather than a straight ramp: a plain
+   two-stop gradient leaves a visible band where the fade begins, and the
+   same curve is used by the blur layers and by the shader's own fade for
+   the card lighting, so all three stay in step.
 
    Depth scales with the viewport rather than a fixed percentage, and the
    scrollport carries matching top and bottom padding so the first and last
    rows can still be brought fully into the sharp middle.
    ========================================================================== */
+/* The component sets both from the gallery's real height; these are only the
+   values used before it has measured.
+     --gal-band  the transparency fade depth, used by the mask below.
+     --gal-blur  the blur ramp depth, deliberately deeper, so softening has
+                 already begun before anything starts to fade out. */
 :root {
-  --gal-band: 0px;
+  --gal-band: 44px;
+  --gal-blur: 70px;
 }
-
-/* The component sets --gal-band from the gallery's real height; this is only
-   the value used before it has measured. The transparency mask and the
-   progressive-blur bands share the same depth so they line up exactly. */
-:root { --gal-band: 44px; }
 
 .gallery-fade {
     --gal-mask: linear-gradient(
       to bottom,
       transparent 0,
-      rgba(0, 0, 0, 0.12) calc(var(--gal-band) * 0.3),
-      rgba(0, 0, 0, 0.55) calc(var(--gal-band) * 0.64),
-      rgba(0, 0, 0, 0.88) calc(var(--gal-band) * 0.85),
+      rgba(0, 0, 0, 0.1563) calc(var(--gal-band) * 0.25),
+      rgba(0, 0, 0, 0.5) calc(var(--gal-band) * 0.5),
+      rgba(0, 0, 0, 0.8438) calc(var(--gal-band) * 0.75),
       #000 var(--gal-band),
       #000 calc(100% - var(--gal-band)),
-      rgba(0, 0, 0, 0.88) calc(100% - var(--gal-band) * 0.85),
-      rgba(0, 0, 0, 0.55) calc(100% - var(--gal-band) * 0.64),
-      rgba(0, 0, 0, 0.12) calc(100% - var(--gal-band) * 0.3),
+      rgba(0, 0, 0, 0.8438) calc(100% - var(--gal-band) * 0.75),
+      rgba(0, 0, 0, 0.5) calc(100% - var(--gal-band) * 0.5),
+      rgba(0, 0, 0, 0.1563) calc(100% - var(--gal-band) * 0.25),
       transparent 100%
     );
     -webkit-mask-image: var(--gal-mask);

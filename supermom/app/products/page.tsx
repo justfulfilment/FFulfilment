@@ -36,14 +36,18 @@ export default function ProductsPage() {
           "relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-[15px] " +
           "bg-surface-page p-4 lg:rounded-panel lg:p-[33px]"
         }
-        style={{ gap: "var(--pg-gap-m)" }}
       >
         <ContrastField
           settings={FIELD_SETTINGS}
           inset="-15%"
           revision={FILTERS.findIndex((f) => f.value === filter)}
         />
-        <Nav />
+        {/* Spacing is per-child rather than one panel gap: the nav keeps the
+            full rhythm above the heading, while the footer sits close so the
+            gallery gets the height back. */}
+        <div className="relative z-10 shrink-0 mb-[var(--pg-gap-m)]">
+          <Nav />
+        </div>
 
         <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center" style={{ gap: "var(--pg-gap-s)" }}>
           <SectionHeading className="shrink-0" />
@@ -63,7 +67,7 @@ export default function ProductsPage() {
           <Gallery key={filter} filter={filter} />
         </main>
 
-        <div className="relative z-10 shrink-0">
+        <div className="relative z-10 shrink-0 mt-[var(--pg-gap-s)]">
           <Footer showWordmark={false} />
         </div>
       </div>

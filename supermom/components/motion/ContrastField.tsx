@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import WayglimBackground, { type GuardConfig, type GuardRect, type GuardRegion } from "./WayglimBackground";
+import WayglimBackground, {
+  type GuardClip,
+  type GuardConfig,
+  type GuardRect,
+  type GuardRegion,
+} from "./WayglimBackground";
 import { useEffectsState } from "./MotionProvider";
 import {
   GUARD_CEILINGS,
@@ -108,6 +113,7 @@ export function ContrastField({
   const hostRef = useRef<HTMLDivElement>(null);
   const [rects, setRects] = useState<GuardRect[]>([]);
   const [measuredRegions, setRegions] = useState<GuardRegion[]>([]);
+  const [clips, setClips] = useState<GuardClip[]>([]);
   const elsRef = useRef<HTMLElement[]>([]);
   const rectsRef = useRef<GuardRect[]>([]);
 
@@ -127,6 +133,27 @@ export function ContrastField({
     // axis, so a rim is the same width whichever edge it sits on.
     const major = Math.max(box.width, box.height);
 
+    // Scroll regions that clip their contents. Measured first, because each
+    // guarded element needs to know which one it belongs to.
+    //
+    // The fade depth comes from the region's own --gal-band, so the light
+    // fades on exactly the profile its content fades on. The sides get half
+    // of it: nothing there fades in the DOM, it simply stops, and a short
+    // ramp is what keeps that from reading as a vertical line through a rim.
+    const clipEls = Array.from(root.querySelectorAll<HTMLElement>("[data-guard-clip]")).slice(0, 2);
+    const foundClips: GuardClip[] = clipEls.map((el) => {
+      const r = el.getBoundingClientRect();
+      const bandPx = parseFloat(getComputedStyle(el).getPropertyValue("--gal-band")) || 0;
+      return {
+        x: (r.left - box.left) / box.width,
+        y: (r.top - box.top) / box.height,
+        w: r.width / box.width,
+        h: r.height / box.height,
+        fadeY: Math.max(bandPx, 1) / box.height,
+        fadeX: Math.max(bandPx * 0.5, 1) / box.width,
+      };
+    });
+
     const found: GuardRect[] = [];
     const els: HTMLElement[] = [];
     root.querySelectorAll<HTMLElement>("[data-guard]").forEach((el) => {
@@ -134,28 +161,31 @@ export function ContrastField({
       // An unrecognised tag gets the tightest ceiling in the set rather than
       // being skipped: a typo must fail safe, not fail open.
       const ceil = isGuardToken(token) ? GUARD_CEILINGS[token] : TIGHTEST_CEILING;
-      let r = el.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
 
-      // Clip to whatever scroll region the element lives in. The lighting is
-      // drawn on a canvas that knows nothing about the gallery's clipping, so
-      // a card scrolled out of the gallery was still asking for a card-shaped
-      // glow at its real position -- which is how an empty lit rectangle
-      // appeared below the gallery, down near the footer. Only the part of an
-      // element that is actually visible inside its scroll region may be lit.
-      let visible = 1;
+      // Which scroll region clips this element, if any.
+      //
+      // The rect is deliberately NOT trimmed to that region. Trimming it made
+      // the shader trace a rounded box around the cut-down rectangle, which
+      // drew a fresh lit border along the clip line -- a card edge where the
+      // card had no edge. And scaling the whole glow by the visible fraction
+      // dimmed the part you could still see, instead of fading the part you
+      // could not. The element keeps its real geometry, and the shader fades
+      // the light it gives off pixel by pixel instead.
       const clipper = el.closest<HTMLElement>("[data-guard-clip]");
-      if (clipper) {
-        const c = clipper.getBoundingClientRect();
-        const top = Math.max(r.top, c.top);
-        const bottom = Math.min(r.bottom, c.bottom);
-        const left = Math.max(r.left, c.left);
-        const right = Math.min(r.right, c.right);
-        if (bottom - top < 1 || right - left < 1) return; // fully clipped away
-        visible = ((bottom - top) * (right - left)) / (r.height * r.width);
-        // A sliver would otherwise get a bright rim drawn along the clip line.
-        if (visible < 0.12) return;
-        r = new DOMRect(left, top, right - left, bottom - top);
+      const clip = clipper ? clipEls.indexOf(clipper) : -1;
+      if (clipper && clip < 0) return; // inside a region the shader has no slot for
+      if (clip >= 0) {
+        // Culled only once nothing it could light is inside the region any
+        // more. The margin is the rim's own reach, so the light is already at
+        // zero by the time the element disappears from the set -- no pop.
+        const c = clipper!.getBoundingClientRect();
+        const reach = Math.min(r.width, r.height) * 0.12 + 8;
+        if (
+          r.bottom + reach < c.top || r.top - reach > c.bottom ||
+          r.right + reach < c.left || r.left - reach > c.right
+        ) return;
       }
 
       const minDim = Math.min(r.width, r.height) / major;
@@ -181,10 +211,11 @@ export function ContrastField({
         // Text gets no rim from here at all. A rim traces the element's
         // bounding box, and the box around a line of type is a rectangle,
         // not the letters. Glyph lighting is the CSS text shadow instead.
-        band: isText ? 0 : clamp(minDim * rimScale, 0.004, EDGE_MAX) * visible,
-        strength: isText ? 0 : clamp(minDim * bendScale, 0.001, 0.012) * visible,
+        band: isText ? 0 : clamp(minDim * rimScale, 0.004, EDGE_MAX),
+        strength: isText ? 0 : clamp(minDim * bendScale, 0.001, 0.012),
         rimOutside: rimMaySitOutside(token),
         hover: 0,
+        clip: clip >= 0 ? clip : undefined,
       });
       els.push(el);
     });
@@ -220,6 +251,7 @@ export function ContrastField({
       });
     });
     setRegions(regs.slice(0, 4));
+    setClips(foundClips);
     // `inset` is deliberately not a dependency: changing it resizes the
     // canvas, and the ResizeObserver on the canvas already re-measures.
   }, [rimScale, bendScale, regionFeather]);
@@ -348,6 +380,7 @@ export function ContrastField({
     shiftX,
     shiftY,
     regions: measuredRegions,
+    clips,
     rects,
   };
 

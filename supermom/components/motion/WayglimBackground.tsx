@@ -272,6 +272,25 @@ export type GuardRect = {
   rimOutside?: boolean;
   /** 0..1, raised while the pointer is over this element. */
   hover?: number;
+  /**
+   * Index into GuardConfig.clips of the scroll region that clips this
+   * element, or undefined when nothing does. The rect itself stays whole:
+   * the clip only fades the light this element gives off.
+   */
+  clip?: number;
+};
+
+/**
+ * A scroll region that clips its contents, with the depth of the fade its
+ * own CSS mask applies. The light from anything inside it is faded by the
+ * same profile, so a glow can never show where its card cannot.
+ */
+export type GuardClip = {
+  x: number; y: number; w: number; h: number;
+  /** Fade depth on the top and bottom edges, normalised to the container height. */
+  fadeY: number;
+  /** Fade depth on the sides, normalised to the container width. */
+  fadeX: number;
 };
 
 /** A region the field is allowed to show in. */
@@ -316,6 +335,8 @@ export type GuardConfig = {
   backdropB?: [number, number, number];
   /** Where the field may show. Empty means everywhere. */
   regions?: GuardRegion[];
+  /** Scroll regions that clip the light of the elements inside them. */
+  clips?: GuardClip[];
   rects: GuardRect[];
 };
 
@@ -354,6 +375,7 @@ const GUARD_OFF: GuardConfig = {
   shiftX: 0,
   shiftY: 0,
   regions: [],
+  clips: [],
   rects: [],
 };
 
@@ -1113,7 +1135,18 @@ uniform vec4 uSmGuardMeta[24];
 // 0 when it must stay under the brightness limit (thin outlines, where the
 // outline itself is the thing that has to stay visible).
 // y = hover strength, 0..1.
+// z = which scroll region clips this element, as slot+1. 0 means none.
 uniform vec4 uSmGuardMeta2[24];
+// Scroll regions that clip their contents, e.g. the NFT gallery. An element
+// inside one keeps its OWN geometry -- the light still traces the real card,
+// not a box re-cut at the clip line -- and the light it produces is then
+// faded by the region's own visibility profile, pixel by pixel.
+uniform int uSmClipCount;
+// x,y,w,h in container-normalised coords, y from the TOP.
+uniform vec4 uSmClips[2];
+// x = fade depth on the top and bottom edges, normalised to the container
+// height. y = the same on the sides, normalised to its width.
+uniform vec4 uSmClipMeta[2];
 uniform float uSmRefract;
 uniform float uSmGlow;
 // A slow swell on the edge lighting. Driven from absolute clock time, so it
@@ -1171,6 +1204,18 @@ lim=min(lim,mix(uSmCeilOpen,uSmGuardMeta[i].y,w));
 }
 return lim;
 }
+// How visible one scroll region is at this pixel: 1 across its clear middle,
+// easing to 0 through the same fade the region's CSS mask uses on its
+// content, and 0 outside it. smoothstep's edges are in increasing order and
+// the orientation is handled by which difference is fed to it, rather than by
+// swapping the edges around.
+float smClipVis(vec2 gp,int idx){
+vec4 c=uSmClips[idx];
+vec2 f=max(uSmClipMeta[idx].xy,vec2(1e-5));
+float v=smoothstep(0.0,f.x,gp.y-c.y)*smoothstep(0.0,f.x,(c.y+c.w)-gp.y);
+v*=smoothstep(0.0,f.y,gp.x-c.x)*smoothstep(0.0,f.y,(c.x+c.z)-gp.x);
+return clamp(v,0.0,1.0);
+}
 // Signed distance to one element's rounded rect, plus the outward normal:
 // the direction light bends away from that edge.
 void smEdge(vec2 q,vec2 ctr,vec2 hs,float rad,out float sd,out vec2 nrm){
@@ -1201,13 +1246,22 @@ float sd;vec2 nrm;
 smEdge(q,(g.xy+g.zw*0.5)*asp,g.zw*0.5*asp,m.x,sd,nrm);
 float band=max(m.z,1e-5);
 float t=sd/band;
-acc+=nrm*exp(-t*t)*m.w;
+// Everything this element contributes is scaled by how visible its own
+// scroll region is HERE. Applied after the halo is shaped and before any
+// of it is added, so a part-scrolled card keeps correct lighting on the
+// part you can see and contributes nothing where it has faded away. The
+// atmosphere and every element outside a region are untouched.
+float cv=1.0;
+int ci=int(uSmGuardMeta2[i].z+0.5)-1;
+if(ci>=0&&ci<uSmClipCount)cv=smClipVis(gp,ci);
+if(cv<=0.0)continue;
+acc+=nrm*exp(-t*t)*m.w*cv;
 // Specular rim: a thin bright core right on the edge plus a soft bloom
 // outside it. This is the part that makes the bending legible -- a pure
 // displacement is nearly invisible against a smooth gradient.
 float core=sd/(band*0.22);
 vec4 m2=uSmGuardMeta2[i];
-float r=exp(-core*core)*0.75+exp(-t*t)*0.35;
+float r=(exp(-core*core)*0.75+exp(-t*t)*0.35)*cv;
 float rh=r*m2.y*2.2;
 if(m2.x>0.5){
 // Outside the element the glow runs free; inside it stays under the
@@ -1454,7 +1508,10 @@ cfFragColor=texture(uTexture,vUv)*cfFrameCoverage(gl_FragCoord.xy);
 const rects=g.rects||[],cnt=Math.min(24,rects.length),xy=new Float32Array(96),mt=new Float32Array(96),m2=new Float32Array(96);
 for(let i=0;i<cnt;i+=1){const r=rects[i];xy.set([r.x,r.y,r.w,r.h],i*4);
 mt.set([r.radius||0,r.ceil,r.band||0,r.strength||0],i*4);
-m2.set([r.rimOutside?1:0,r.hover||0,0,0],i*4)}
+m2.set([r.rimOutside?1:0,r.hover||0,typeof r.clip==="number"?r.clip+1:0,0],i*4)}
+const clips=g.clips||[],cc=Math.min(2,clips.length),cxy=new Float32Array(8),cmt=new Float32Array(8);
+for(let i=0;i<cc;i+=1){const c=clips[i];cxy.set([c.x,c.y,c.w,c.h],i*4);
+cmt.set([c.fadeY||0,c.fadeX||0,0,0],i*4)}
 const regs=g.regions||[],rc=Math.min(4,regs.length),rxy=new Float32Array(16),rmt=new Float32Array(16);
 for(let i=0;i<rc;i+=1){const r=regs[i];rxy.set([r.x,r.y,r.w,r.h],i*4);
 rmt.set([r.radius||0,r.feather||0.02,r.subtract?-1:1,r.backdropB?1:0],i*4)}
@@ -1470,7 +1527,8 @@ e.uniform1f(n("uSmGlow"),typeof g.glow==="number"?g.glow:0),
 e.uniform1f(n("uSmBreath"),0.88+0.12*Math.sin(performance.now()/4200*Math.PI*2)),
 e.uniform2f(n("uSmShift"),typeof g.shiftX==="number"?g.shiftX:0,typeof g.shiftY==="number"?g.shiftY:0),
 e.uniform1i(n("uSmGuardCount"),cnt),e.uniform4fv(n("uSmGuards[0]"),xy),e.uniform4fv(n("uSmGuardMeta[0]"),mt),e.uniform4fv(n("uSmGuardMeta2[0]"),m2),
-e.uniform1i(n("uSmRegionCount"),rc),e.uniform4fv(n("uSmRegions[0]"),rxy),e.uniform4fv(n("uSmRegionMeta[0]"),rmt)}
+e.uniform1i(n("uSmRegionCount"),rc),e.uniform4fv(n("uSmRegions[0]"),rxy),e.uniform4fv(n("uSmRegionMeta[0]"),rmt),
+e.uniform1i(n("uSmClipCount"),cc),e.uniform4fv(n("uSmClips[0]"),cxy),e.uniform4fv(n("uSmClipMeta[0]"),cmt)}
 function cfSetMaskUniforms(e,o,t,a){const n=f=>cfUniform(e,o,f),r=Math.min(12,t.masks.length),i=new Float32Array(24),s=new Float32Array(48),c=new Float32Array(12);for(let f=0;f<12;f+=1){const l=t.masks[f];if(!l){i.set([.5,.5],f*2),s.set([1,0,1,1],f*4);continue}const v=l.rotation*Math.PI/180;i.set([(l.centerX+1)/2,(1-l.centerY)/2],f*2),s.set([Math.cos(v),Math.sin(v),200/l.width,200/l.height],f*4),c[f]=l.blur/100}e.uniform1i(n("uMaskCount"),r),e.uniform2fv(n("uMaskCenter[0]"),i),e.uniform4fv(n("uMaskAxes[0]"),s),e.uniform1fv(n("uMaskBlur[0]"),c),e.uniform1f(n("uMaskEnabled"),t.masksEnabled?1:0),e.uniform1f(n("uMaskPreview"),a?1:0)}function cfSetFrameUniforms(e,o,t,a){e.uniform1i(cfUniform(e,o,"uFrameShape"),a?cfShapeIndex[t.frameShape]??0:0),e.uniform1f(cfUniform(e,o,"uFrameRadius"),cfClamp01(t.cornerRadius/100)),e.uniform2f(cfUniform(e,o,"uFrameOffset"),a?.offsetX??0,a?.offsetY??0),e.uniform2f(cfUniform(e,o,"uFrameSize"),a?.width??1,a?.height??1)}function cfBeginPass(e,o,t,a){e.bindFramebuffer(e.FRAMEBUFFER,o),e.viewport(0,0,t.width,t.height),e.disable(e.BLEND),e.clearColor(0,0,0,0),e.clear(e.COLOR_BUFFER_BIT),e.useProgram(a.program)}function cfDrawFieldPass(e,o,t,a,n,r,i){const s=o.field,{scale:c,view:f}=i,l=r.composite==="over-backdrop",v=r.background;cfBeginPass(e,t,a,s),e.uniform3f(cfUniform(e,s,"iResolution"),f?f.width*c:a.width,f?f.height*c:a.height,1),e.uniform2f(cfUniform(e,s,"uViewOffset"),f?f.offsetX*c:0,f?f.offsetY*c:0),cfSetFieldUniforms(e,s,n,cfLoopTime(n,r)),cfSetFormUniforms(e,s,n,r.loopProgress),cfSetPointerUniforms(e,s,n,r.pointer,[f?f.width*c:a.width,f?f.height*c:a.height]),cfSetEffectUniforms(e,s,n),cfSetMaskUniforms(e,s,n,r.maskPreview===!0),cfSetFrameUniforms(e,s,n,i.box),cfSetGuardUniforms(e,s,n,a),e.uniform1f(cfUniform(e,s,"uOpaque"),r.composite==="transparent"?0:1),e.uniform1f(cfUniform(e,s,"uRemoveBackdrop"),l&&!n.lens.enabled?1:0),e.uniform1f(cfUniform(e,s,"uPremultiply"),l?0:1),e.uniform3f(cfUniform(e,s,"uBg"),v[0],v[1],v[2]),e.activeTexture(e.TEXTURE0),e.bindTexture(e.TEXTURE_2D,o.noise),e.uniform1i(cfUniform(e,s,"u_noiseTexture"),0),cfDrawQuad(e,o.quad)}function cfDrawLensPass(e,o,t,a,n,r,i,s){const c=o.lens,f=i.background;cfBeginPass(e,t,a,c),e.activeTexture(e.TEXTURE0),e.bindTexture(e.TEXTURE_2D,n),e.uniform1i(cfUniform(e,c,"u_image"),0),e.uniform4f(cfUniform(e,c,"uViewWindow"),0,0,1,1),e.uniform1f(cfUniform(e,c,"uRemoveBackdrop"),i.composite==="over-backdrop"?1:0),e.uniform3f(cfUniform(e,c,"uBg"),f[0],f[1],f[2]),e.uniform1f(cfUniform(e,c,"u_imageAspectRatio"),a.width/a.height);for(const l of CF_LENS_KEYS)e.uniform1f(cfUniform(e,c,`u_${l}`),r.lens[l]);e.uniform1f(cfUniform(e,c,"u_count"),Math.min(50,Math.round(r.lens.count))),cfSetFrameUniforms(e,c,r,s),cfDrawQuad(e,o.quad)}function cfDrawCopyPass(e,o,t,a,n,r){const i=o.copy;cfBeginPass(e,null,t,i),e.activeTexture(e.TEXTURE0),e.bindTexture(e.TEXTURE_2D,a),e.uniform1i(cfUniform(e,i,"uTexture"),0),cfSetFrameUniforms(e,i,n,r),cfDrawQuad(e,o.quad)}function createCfMotion(e,o={}){const t=e.getContext("webgl2",{alpha:!0,antialias:!1,depth:!1,powerPreference:"high-performance",premultipliedAlpha:!0,preserveDrawingBuffer:o.preserveDrawingBuffer===!0,stencil:!1});if(!t)return null;let a=null,n=null,r=null;const i=cfMaxSize(t),s=()=>(a??(a={copy:cfCreateProgram(t,CF_MOTION_QUAD_VERTEX,CF_MOTION_COPY_FRAGMENT),field:cfCreateProgram(t,CF_MOTION_QUAD_VERTEX,CF_MOTION_FIELD_FRAGMENT),lens:cfCreateProgram(t,CF_MOTION_LENS_VERTEX,CF_MOTION_LENS_FRAGMENT),noise:cfCreateNoiseTexture(t,o.noiseTexture),quad:cfCreateQuad(t)}),a),c=(v,C,A)=>v&&v.width===C&&v.height===A?v:(v&&cfDeleteTarget(t,v),cfCreateTarget(t,C,A));return{dispose:()=>{t.isContextLost()||(a&&(t.deleteProgram(a.copy.program),t.deleteProgram(a.field.program),t.deleteProgram(a.lens.program),t.deleteTexture(a.noise),t.deleteBuffer(a.quad)),n&&cfDeleteTarget(t,n),r&&cfDeleteTarget(t,r)),a=null,n=null,r=null},isLost:()=>t.isContextLost(),maxSize:()=>i,render:(v,C)=>{if(t.isContextLost())return;const A=Math.max(1,Math.round(C.width)),g=Math.max(1,Math.round(C.height));e.width!==A&&(e.width=A),e.height!==g&&(e.height=g);const D=s(),b=Math.min(1,Math.max(.1,C.internalScale??1)),d={height:Math.max(1,Math.round(g*b)),width:Math.max(1,Math.round(A*b))},Q=v.lens.enabled,w=d.width===A&&d.height===g,h=!Q&&w,k=!Q&&C.view?C.view:null,B=k??{height:g,offsetX:0,offsetY:0,width:A};if(h||(n=c(n,d.width,d.height)),cfDrawFieldPass(t,D,h?null:n?.framebuffer??null,d,v,C,{box:h?B:null,scale:b,view:k}),h||!n)return;let F=n.texture;if(Q){if(w||(r=c(r,d.width,d.height)),cfDrawLensPass(t,D,w?null:r?.framebuffer??null,d,F,v,C,w?B:null),w||!r)return;F=r.texture}cfDrawCopyPass(t,D,{height:g,width:A},F,v,B)},reset:()=>{a=null,n=null,r=null},surface:e}}function mountCfMotion(e,o){const t=document.createElement("canvas");t.setAttribute("aria-hidden","true"),t.style.cssText="display:block;position:absolute;max-width:none;pointer-events:none;",e.appendChild(t);const a=createCfMotion(t,{noiseTexture:o.noise});if(!a)return t.remove(),{destroy:()=>{},setPaused:()=>{}};let n=!1,r=!1,i=!1,s=!0,c=typeof document>"u"||document.visibilityState!=="hidden",f=0;const l=Math.max(.5,o.durationSeconds);let v=((o.startSeconds||0)%l+l)%l;const C=typeof o.pace=="number"&&o.pace>0?Math.min(4,o.pace):1;let A=null,g=1,D=1,b=1,d=1,Q=1,w=1,h=0;const k=o.background?"opaque":"transparent",B=o.background??[0,0,0],F=o.params.lens.enabled,W=o.respectReducedMotion&&typeof window.matchMedia=="function"?window.matchMedia("(prefers-reduced-motion: reduce)"):null,y=!!(o.params.pointer&&o.params.pointer.enabled),I={presence:0,x:.5,y:.5},M={presence:0,x:.5,y:.5};let S=!1;const L=u=>{const m=e.getBoundingClientRect(),P=o.aspectRatio>0?o.aspectRatio:m.width/Math.max(1,m.height),p=Math.max(m.width,m.height*P),x=p/P,T=u.clientX>=m.left&&u.clientX<=m.right&&u.clientY>=m.top&&u.clientY<=m.bottom;I.x=Math.min(1,Math.max(0,(u.clientX-m.left-(m.width-p)/2)/p)),I.y=Math.min(1,Math.max(0,(u.clientY-m.top-(m.height-x)/2)/x)),I.presence=T?1:0,S=!0,E()},R=()=>{I.presence=0,S=!0,E()},z=u=>{u.pointerType!=="mouse"&&R()},G=u=>2*Math.round(u/4),N=()=>{if(n||r)return;const u=w/Math.max(1,Q),m=Math.max(1,Math.round(g*u)),P=Math.max(1,Math.round(D*u)),p=Math.max(m,Math.round(b*Q*u)),x=Math.max(P,Math.round(d*Q*u));a.render(o.params,{background:[B[0],B[1],B[2]],composite:k,durationSeconds:l,height:D,internalScale:u,loopProgress:v/l,pointer:y&&M.presence>.001?{presence:M.presence,x:M.x,y:M.y}:void 0,view:F?void 0:{height:x/u,offsetX:G(p-m)/u,offsetY:G(x-P)/u,width:p/u},width:g})},_=()=>!n&&!r&&!i&&c&&s&&!(W&&W.matches),Y=u=>{if(f=0,!_()){A=null;return}if(A!==null){const m=u-A;v=(v+Math.min(m,250)/1e3*C)%l,h=m>34?h+1:Math.max(0,h-1),h>24&&w>.5&&(w=Math.max(.5,w-.125),h=0)}if(y&&(S||M.presence>.001)){const m=A===null?.016666666666666666:(u-A)/1e3;S=cfFollowPointer(M,I,m,o.params.pointer.smoothing)}A=u,N(),f=window.requestAnimationFrame(Y)},E=()=>{f||!_()||(f=window.requestAnimationFrame(Y))},V=()=>{const u=Math.min(window.devicePixelRatio||1,Math.max(.5,o.maxPixelRatio)),m=e.getBoundingClientRect(),P=Math.max(1,m.width),p=Math.max(1,m.height),x=o.aspectRatio>0?o.aspectRatio:P/p,T=Math.max(P,p*x),X=T/x,Z=F?T:P,O=F?X:p;t.style.width=`${Z}px`,t.style.height=`${O}px`,t.style.left=`${(P-Z)/2}px`,t.style.top=`${(p-O)/2}px`;const ee=a.maxSize(),U=Math.min(1,ee/Math.max(T*u,X*u));g=Math.max(1,Math.round(Z*u*U)),D=Math.max(1,Math.round(O*u*U)),b=T*U,d=X*U,Q=u,N()},J=typeof ResizeObserver=="function"?new ResizeObserver(V):null;J?.observe(e);const K=o.pauseOffscreen&&typeof IntersectionObserver=="function"?new IntersectionObserver(u=>{s=u.some(m=>m.isIntersecting),E()}):null;K?.observe(e);const j=()=>{c=document.visibilityState!=="hidden",E()};document.addEventListener("visibilitychange",j),y&&(window.addEventListener("pointermove",L,{passive:!0}),window.addEventListener("pointerdown",L,{passive:!0}),window.addEventListener("pointerup",z,{passive:!0}),window.addEventListener("pointercancel",R,{passive:!0}),document.documentElement.addEventListener("pointerleave",R));const q=()=>{N(),E()};W?.addEventListener?.("change",q);const H=u=>{u.preventDefault(),r=!0},$=()=>{r=!1,a.reset(),N(),E()};if(t.addEventListener("webglcontextlost",H),t.addEventListener("webglcontextrestored",$),getComputedStyle(e).position==="absolute"){const u=e.offsetParent;(!u||u===document.documentElement||u===document.body)&&getComputedStyle(document.body).position==="static"&&(console.warn("Wayglim Prism Flow: no positioned parent found (add position: relative to the hero section), so it renders as a block with the studio aspect ratio."),e.style.position="relative",e.style.top="",e.style.left="",e.style.width="100%",e.style.height="auto",e.style.aspectRatio=String(o.aspectRatio>0?o.aspectRatio:16/9))}return e.getBoundingClientRect().height<1&&typeof console<"u"&&console.warn("Wayglim Prism Flow: the container has no height. Give it a height, or place it inside a positioned (position: relative) section with a height."),V(),E(),{destroy:()=>{n=!0,f&&window.cancelAnimationFrame(f),J?.disconnect(),K?.disconnect(),document.removeEventListener("visibilitychange",j),window.removeEventListener("pointermove",L),window.removeEventListener("pointerdown",L),window.removeEventListener("pointerup",z),window.removeEventListener("pointercancel",R),document.documentElement.removeEventListener("pointerleave",R),W?.removeEventListener?.("change",q),t.removeEventListener("webglcontextlost",H),t.removeEventListener("webglcontextrestored",$),a.dispose(),t.remove()},setPaused:u=>{i=u,u||E()}}}
 return mountCfMotion;
 })();

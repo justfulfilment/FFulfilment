@@ -6,73 +6,76 @@ import { NftCard } from "./NftCard";
 import { sortForFilter, type GalleryFilter } from "@/lib/products";
 
 /**
- * The NFT gallery: a clear viewing window with a narrow transition band at the
- * top and another at the bottom. The bands are fixed to the gallery; the cards
- * move through them.
+ * The NFT gallery: a clear viewing window with a soft transition at the top
+ * and another at the bottom. The transitions are fixed to the gallery; the
+ * cards move through them.
  *
- * The treatment belongs to the POSITION, not to the card. Previously each card
- * got a blur as a whole as soon as any part of it neared an edge, so a card
- * that was mostly on screen sat there blurred. Now nothing is applied to the
- * cards at all -- they stay sharp -- and two stationary layers do the work:
+ * The treatment belongs to the POSITION, not to the card, so nothing is
+ * applied to the cards at all -- they stay sharp -- and two stationary stacks
+ * do the work. Moving outward from the clear centre the progression is:
  *
- *  1. Progressive blur bands. Four stacked layers per band, each blurring more
- *     than the last and each masked to a shorter reach, so softness ramps up
- *     toward the edge instead of switching on. They are decorative and
- *     non-interactive.
- *  2. A transparency mask on the scrollport itself, which takes the content to
- *     fully transparent before the hard clip. Its mask is painted in the
- *     element's own box, so it stays still while the content scrolls.
+ *   sharp and fully visible -> gradually softer -> gradually transparent -> gone
  *
- * The consequence is the rule we want: one card can be perfectly sharp across
- * its middle and softened only where it actually crosses a band.
+ * Two depths, deliberately different, are what make that progression read as
+ * one continuous thing instead of two effects switching on:
  *
- * The scrollport carries data-guard-clip, which tells the lighting system that
- * a card's light may only appear where the card is really visible. Without it,
- * cards scrolled out of view still asked for a card-shaped glow at their real
- * position -- an empty lit rectangle below the gallery.
+ *   --gal-band  the transparency fade, on the scrollport's own mask.
+ *   --gal-blur  the blur ramp, 1.6x deeper, so softening has already begun
+ *               before anything starts to fade out.
+ *
+ * Both ramps use the same curve (smoothstep), so the renderer's own fade for
+ * the card lighting can be matched to them exactly.
+ *
+ * The scrollport carries data-guard-clip, which hands the lighting system the
+ * gallery's bounds and this fade depth. Without it a card scrolled out of view
+ * still asked for a card-shaped glow at its real position.
  */
 
-/** How many blur layers make up each band. More is smoother and costs more. */
+/** How many blur layers make up each transition. More is smoother and costs more. */
 const LAYERS = 4;
+
+/**
+ * A smoothstep ramp written as gradient stops: alpha at 0, 25, 50, 75 and
+ * 100 per cent of the distance travelled. CSS interpolates linearly between
+ * stops, and five points is enough that the result has no visible corner.
+ *
+ * It runs 1 -> 0, and it is always laid out from the band's OUTER edge
+ * inward. That direction is the whole fix: the previous masks ran from the
+ * inner edge, which put full blur hard against the sharp centre.
+ */
+const RAMP = [1, 0.8438, 0.5, 0.1563, 0] as const;
 
 export function Gallery({ filter }: { filter: GalleryFilter }) {
   const cards = sortForFilter(filter);
   const scrollRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const cueRef = useRef<HTMLDivElement>(null);
 
   const measure = useCallback(() => {
     const box = scrollRef.current;
     const wrap = wrapRef.current;
     if (!box || !wrap) return;
 
-    // Band depth from the gallery's own height, with a floor and a ceiling so
-    // the clear centre always keeps most of the room.
-    const band = Math.round(Math.max(26, Math.min(92, box.clientHeight * 0.1)));
+    // Depths from the gallery's own height, with a floor and a ceiling so the
+    // clear centre always keeps most of the room.
+    const band = Math.round(Math.max(24, Math.min(72, box.clientHeight * 0.085)));
     wrap.style.setProperty("--gal-band", `${band}px`);
-
-    const bounded = box.scrollHeight > box.clientHeight + 1;
-    if (cueRef.current) {
-      cueRef.current.style.opacity = bounded && box.scrollTop < 24 ? "0.7" : "0";
-    }
+    wrap.style.setProperty("--gal-blur", `${Math.round(band * 1.6)}px`);
   }, []);
 
   useEffect(() => {
     const box = scrollRef.current;
     if (!box) return undefined;
     let raf = 0;
-    const onScroll = () => {
+    const onResize = () => {
       if (raf) return;
       raf = window.requestAnimationFrame(() => { raf = 0; measure(); });
     };
     measure();
-    box.addEventListener("scroll", onScroll, { passive: true });
-    const ro = new ResizeObserver(onScroll);
+    const ro = new ResizeObserver(onResize);
     ro.observe(box);
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
-      box.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
       ro.disconnect();
       if (raf) window.cancelAnimationFrame(raf);
     };
@@ -99,7 +102,10 @@ export function Gallery({ filter }: { filter: GalleryFilter }) {
           "h-[58svh] lg:h-auto lg:min-h-0 lg:flex-1",
           // Room at the ends so the first and last rows can each be brought
           // fully into the clear centre, and at the sides for card shadows.
-          "px-[var(--pg-gap-s)] py-[var(--gal-band)]",
+          // A gap's worth beyond the blur depth, because fractional row
+          // heights otherwise leave the last row a few pixels short of
+          // clearing the band at some viewport heights.
+          "px-[var(--pg-gap-s)] py-[calc(var(--gal-blur)+var(--pg-gap-s))]",
           "gallery-fade",
         )}
       >
@@ -110,56 +116,51 @@ export function Gallery({ filter }: { filter: GalleryFilter }) {
 
       <BlurBand edge="top" />
       <BlurBand edge="bottom" />
-
-      {/* Outside the scrollport, so the edge mask does not fade it away. */}
-      <div
-        ref={cueRef}
-        aria-hidden="true"
-        style={{ opacity: 0 }}
-        className={cn(
-          "pointer-events-none absolute inset-x-0 -bottom-4 flex justify-center",
-          "font-sans text-[11px] tracking-[0.08em] uppercase text-text-eyebrow",
-          "transition-opacity duration-slow ease-out-quart motion-reduce:transition-none",
-        )}
-      >
-        Scroll to explore
-      </div>
     </div>
   );
 }
 
 /**
- * One transition band. Each layer blurs more than the one below it and is
- * masked to reach less far in from the edge, which is what makes the softness
- * ramp rather than step. The layers paint no colour of their own, so the
- * background stays visible through them.
+ * One transition. Every layer spans the whole band -- so each one has the
+ * full depth to sample its backdrop from, which is what keeps the filter
+ * from reading clipped content at its own edge -- and only the MASK decides
+ * where it shows. Layer 0 has the least blur and reaches furthest in; each
+ * one after it blurs twice as much and is held closer to the outer edge.
+ *
+ * Every layer's mask reaches zero before the clear centre, so no layer has
+ * any visible contribution at the inner boundary. The layers paint no colour
+ * of their own, so the background stays visible through them.
  */
 function BlurBand({ edge }: { edge: "top" | "bottom" }) {
-  const toEdge = edge === "top" ? "to top" : "to bottom";
+  // The gradient line always starts at the band's outer edge: the top of the
+  // top band, the bottom of the bottom band.
+  const fromOuter = edge === "top" ? "to bottom" : "to top";
   return (
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute inset-x-0 h-[var(--gal-band)]",
+        "pointer-events-none absolute inset-x-0 h-[var(--gal-blur)]",
         edge === "top" ? "top-0" : "bottom-0",
       )}
     >
       {Array.from({ length: LAYERS }, (_, i) => {
-        // Layer 0 covers the whole band with the least blur; each one after it
-        // doubles the blur and starts closer to the edge.
-        const reach = 1 - i / LAYERS;
-        const mask =
-          `linear-gradient(${toEdge}, ` +
-          `rgba(0,0,0,1) 0%, ` +
-          `rgba(0,0,0,1) ${(reach * 60).toFixed(0)}%, ` +
-          `rgba(0,0,0,0) ${(reach * 100).toFixed(0)}%)`;
+        // How far in this layer is allowed to reach, as a fraction of the
+        // band. The heaviest blur gets the shortest reach, and all of them
+        // land on zero well before the sharp content starts.
+        const reach = 1 - i * 0.21;
+        const stops = RAMP.map((a, k) => {
+          const at = (k / (RAMP.length - 1)) * reach * 100;
+          return `rgba(0,0,0,${a}) ${at.toFixed(2)}%`;
+        }).join(", ");
+        const mask = `linear-gradient(${fromOuter}, ${stops})`;
+        const blur = `blur(${(2 ** i * 0.9).toFixed(2)}px)`;
         return (
           <div
             key={i}
             className="absolute inset-0"
             style={{
-              backdropFilter: `blur(${(2 ** i * 0.9).toFixed(2)}px)`,
-              WebkitBackdropFilter: `blur(${(2 ** i * 0.9).toFixed(2)}px)`,
+              backdropFilter: blur,
+              WebkitBackdropFilter: blur,
               maskImage: mask,
               WebkitMaskImage: mask,
             }}
