@@ -90,6 +90,17 @@ export type ContrastFieldProps = {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+/** Cheap structural comparison, so unchanged geometry does not force a render. */
+function sameShapes<T extends object>(a: T[], b: T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const x = a[i] as Record<string, unknown>;
+    const y = b[i] as Record<string, unknown>;
+    for (const key of Object.keys(y)) if (x[key] !== y[key]) return false;
+  }
+  return true;
+}
+
 export function ContrastField({
   className,
   revision = 0,
@@ -116,6 +127,24 @@ export function ContrastField({
   const [clips, setClips] = useState<GuardClip[]>([]);
   const elsRef = useRef<HTMLElement[]>([]);
   const rectsRef = useRef<GuardRect[]>([]);
+  /**
+   * Eased hover brightness, keyed by the ELEMENT rather than by its slot.
+   *
+   * This used to live on the rect objects themselves, which measure() rebuilds
+   * from scratch -- so every re-measure handed the shader a fresh set of rects
+   * with hover back at 0, wiping whatever had been eased so far. A measure
+   * runs a few milliseconds after the pointer enters, and again on every frame
+   * of the post-transition burst, so in practice the first hover rose one step
+   * to 0.18 and was wiped before it could reach 1.
+   *
+   * Keyed by element, the value also survives a card being culled and brought
+   * back as the gallery scrolls, and survives slots shifting when the set of
+   * visible cards changes -- an index into a filtered array is not an
+   * identity, and reusing one made the light jump to a neighbouring card.
+   */
+  const hoverRef = useRef(new WeakMap<HTMLElement, number>());
+  /** The element the pointer is over. Owned by the pointer loop, never reset by a re-measure. */
+  const hoverElRef = useRef<HTMLElement | null>(null);
 
   const measure = useCallback(() => {
     const host = hostRef.current;
@@ -214,7 +243,8 @@ export function ContrastField({
         band: isText ? 0 : clamp(minDim * rimScale, 0.004, EDGE_MAX),
         strength: isText ? 0 : clamp(minDim * bendScale, 0.001, 0.012),
         rimOutside: rimMaySitOutside(token),
-        hover: 0,
+        // Carried across the rebuild, so measuring never interrupts a fade.
+        hover: hoverRef.current.get(el) ?? 0,
         clip: clip >= 0 ? clip : undefined,
       });
       els.push(el);
@@ -250,8 +280,11 @@ export function ContrastField({
         backdropB: kind === "ring",
       });
     });
-    setRegions(regs.slice(0, 4));
-    setClips(foundClips);
+    const nextRegions = regs.slice(0, 4);
+    // Regions and clips rarely change, but measure() ran often enough that
+    // handing React a new array identity each time cost a render per pass.
+    setRegions((prev) => (sameShapes(prev, nextRegions) ? prev : nextRegions));
+    setClips((prev) => (sameShapes(prev, foundClips) ? prev : foundClips));
     // `inset` is deliberately not a dependency: changing it resizes the
     // canvas, and the ResizeObserver on the canvas already re-measures.
   }, [rimScale, bendScale, regionFeather]);
@@ -319,38 +352,57 @@ export function ContrastField({
     };
   }, [measure, revision]);
 
-  // Hover: the element under the pointer brightens its own edge. The eased
-  // values are written straight into the live rects rather than through
-  // state, because this runs every frame and a re-render per frame would be
-  // wasteful -- the shader reads the same objects.
+  // Hover: the element under the pointer brightens its own edge.
+  //
+  // Installed ONCE. It used to depend on `rects`, so every re-measure tore the
+  // listeners down and rebuilt them with the pointer target reset to "nothing
+  // hovered" -- the glow dropped out and only came back if the pointer moved
+  // again. The loop now reads the live refs instead, so measuring and hovering
+  // no longer interfere at all.
+  //
+  // The eased values are written straight into the live rect objects rather
+  // than through state: this runs every frame, and the shader reads the same
+  // objects, so a re-render per frame would buy nothing.
   useEffect(() => {
     const host = hostRef.current;
     const root = host?.parentElement;
     if (!root) return undefined;
 
-    let target = -1;
     let raf = 0;
+    let last = 0;
 
-    const step = () => {
+    const step = (now: number) => {
+      // Elapsed time rather than a fixed fraction per frame, so the fade takes
+      // the same wall-clock time on a 60Hz and a 120Hz display, and a slow
+      // frame does not make it lurch.
+      const dt = last ? Math.min(64, now - last) : 16;
+      last = now;
+      const k = 1 - Math.exp(-dt / 90);
+
       const rs = rectsRef.current;
+      const els = elsRef.current;
+      const target = hoverElRef.current;
       let moving = false;
       for (let i = 0; i < rs.length; i += 1) {
-        const want = i === target ? 1 : 0;
+        const el = els[i];
+        const want = el && el === target ? 1 : 0;
+        // Always continue from where this element actually is, so a quick
+        // exit and re-entry reverses the fade instead of restarting it.
         const cur = rs[i].hover ?? 0;
-        const next = cur + (want - cur) * 0.18;
-        rs[i].hover = Math.abs(next - want) < 0.004 ? want : next;
-        if (rs[i].hover !== want) moving = true;
+        const next = Math.abs(want - cur) < 0.004 ? want : cur + (want - cur) * k;
+        rs[i].hover = next;
+        if (el) hoverRef.current.set(el, next);
+        if (next !== want) moving = true;
       }
-      raf = moving || target >= 0 ? window.requestAnimationFrame(step) : 0;
+      raf = moving || target ? window.requestAnimationFrame(step) : (last = 0);
     };
-    const kick = () => { if (!raf) raf = window.requestAnimationFrame(step); };
+    const kick = () => { if (!raf) { last = 0; raf = window.requestAnimationFrame(step); } };
 
     const onMove = (e: PointerEvent) => {
-      const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-guard]");
-      const next = el ? elsRef.current.indexOf(el) : -1;
-      if (next !== target) { target = next; kick(); }
+      const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-guard]") ?? null;
+      if (el !== hoverElRef.current) { hoverElRef.current = el; kick(); }
     };
-    const onLeave = () => { target = -1; kick(); };
+    const onLeave = () => { hoverElRef.current = null; kick(); };
 
     root.addEventListener("pointermove", onMove, { passive: true });
     root.addEventListener("pointerleave", onLeave, { passive: true });
@@ -359,7 +411,7 @@ export function ContrastField({
       root.removeEventListener("pointerleave", onLeave);
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [rects]);
+  }, []);
 
   // A revision bump means React just changed the layout; measure after paint.
   useEffect(() => {

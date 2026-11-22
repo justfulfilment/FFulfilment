@@ -440,6 +440,26 @@ html[data-custom-pointer="on"] * {
   --motion-shift: 12px;
 }
 
+/* The living surface inside Connect wallet. Transform only, so the compositor
+   owns every frame and nothing here triggers layout or paint. Each layer runs
+   on its own period, and the pair is deliberately coprime-ish so the drift
+   never settles into a loop you can see. Pause effects and reduced motion
+   both drop the animation and leave the composition standing. */
+@keyframes lv-drift-a {
+  0%   { transform: translate3d(-6%, -4%, 0) scale(1.08); }
+  50%  { transform: translate3d(7%, 5%, 0) scale(1.22); }
+  100% { transform: translate3d(-6%, -4%, 0) scale(1.08); }
+}
+@keyframes lv-drift-b {
+  0%   { transform: translate3d(5%, 4%, 0) scale(1.18); }
+  50%  { transform: translate3d(-7%, -5%, 0) scale(1.04); }
+  100% { transform: translate3d(5%, 4%, 0) scale(1.18); }
+}
+@keyframes lv-grain {
+  0%   { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-140px, -140px, 0); }
+}
+
 /* Connect wallet's signature light sweep (Figma 1:202). Transform only, and
    the component stops rendering it entirely when effects are paused. */
 @keyframes nav-sweep {

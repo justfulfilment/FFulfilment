@@ -7,6 +7,7 @@ import { DeadLink, pressable } from "@/components/ui/Dead";
 import { Spinner } from "@/components/ui/WalletButton";
 import { Mark } from "@/components/icons/Mark";
 import { useEffectsState } from "@/components/motion/MotionProvider";
+import { LivingSurface } from "@/components/motion/LivingSurface";
 
 const LINKS = ["Products", "Journey Map", "Newsletter"] as const;
 
@@ -85,18 +86,29 @@ export function Nav() {
           pressable,
         )}
       >
-        {/* the signature sweep: transform only, frozen when effects are off */}
+        {/* The living surface: the page's atmosphere at pill scale, with its
+            own pointer response. Decorative, clipped by the button's own
+            overflow-hidden, and underneath the label -- which carries no
+            filter, so it stays crisp. Held still, not removed, when effects
+            are paused or motion is reduced.
+
+            It replaces the single linear sweep that used to run here: one
+            beam crossing the pill read as a loading shimmer rather than a
+            material, and it could not respond to the pointer at all. */}
+        {wallet !== "pending" && <LivingSurface />}
+        {/* The signature sweep still passes over the top, now as the
+            highlight on that material rather than the whole of it. */}
         {!effectsOff && wallet !== "pending" && (
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-y-0 -left-full w-full animate-[nav-sweep_6s_linear_infinite]"
             style={{
               backgroundImage:
-                "linear-gradient(100deg, transparent 0%, color-mix(in oklab, var(--color-text-primary) 22%, transparent) 50%, transparent 100%)",
+                "linear-gradient(100deg, transparent 0%, color-mix(in oklab, var(--color-text-primary) 14%, transparent) 50%, transparent 100%)",
             }}
           />
         )}
-        <span className="relative flex items-center gap-2">
+        <span className="relative z-10 flex items-center gap-2">
           {wallet === "idle" && (
             <>
               <Diamond />

@@ -60,6 +60,47 @@ export function Gallery({ filter }: { filter: GalleryFilter }) {
     const band = Math.round(Math.max(24, Math.min(72, box.clientHeight * 0.085)));
     wrap.style.setProperty("--gal-band", `${band}px`);
     wrap.style.setProperty("--gal-blur", `${Math.round(band * 1.6)}px`);
+
+    // How far in from the scrollport's sides the card columns actually start.
+    //
+    // The scrollport is full width but the grid is centred and narrower, so
+    // bands pinned to the scrollport's edges were softening a wide strip of
+    // plain background to the left and right of the columns -- blur with
+    // nothing to blur. They are pinned to the columns instead, with a
+    // breathing margin for the card shadows, and feathered across that margin
+    // so the containment never shows up as a vertical edge.
+    const cards = box.querySelectorAll<HTMLElement>("article");
+    const br = box.getBoundingClientRect();
+    let min = Infinity;
+    let max = -Infinity;
+    cards.forEach((c) => {
+      const r = c.getBoundingClientRect();
+      if (r.width < 1) return;
+      min = Math.min(min, r.left);
+      max = Math.max(max, r.right);
+    });
+    // Cards scrolled out of view still report their laid-out position, so this
+    // is the grid's real column extent and does not move as the gallery scrolls.
+    const pad = parseFloat(getComputedStyle(wrap).getPropertyValue("--pg-gap-m")) || 24;
+    let margin = 0;
+    if (Number.isFinite(min) && Number.isFinite(max)) {
+      const left = Math.max(0, Math.round(min - br.left - pad));
+      const right = Math.max(0, Math.round(br.right - max - pad));
+      wrap.style.setProperty("--gal-side-l", `${left}px`);
+      wrap.style.setProperty("--gal-side-r", `${right}px`);
+      // How much room the band really has outside the columns once it has
+      // been pinned. On a narrow layout the columns nearly fill the
+      // scrollport, so there is less than a full margin to work with.
+      margin = Math.min(min - br.left - left, br.right - max - right);
+    } else {
+      wrap.style.setProperty("--gal-side-l", "0px");
+      wrap.style.setProperty("--gal-side-r", "0px");
+    }
+    // The feather spans that room and no more, so it has finished before it
+    // reaches a card and the outside columns are not dimmed. The floor keeps
+    // a short ramp even when there is no room, because a slightly soft card
+    // edge reads better than a hard vertical line.
+    wrap.style.setProperty("--gal-side-fade", `${Math.max(8, Math.round(Math.min(pad, margin)))}px`);
   }, []);
 
   useEffect(() => {
@@ -135,11 +176,21 @@ function BlurBand({ edge }: { edge: "top" | "bottom" }) {
   // The gradient line always starts at the band's outer edge: the top of the
   // top band, the bottom of the bottom band.
   const fromOuter = edge === "top" ? "to bottom" : "to top";
+  // The horizontal feather is composited INTO each layer's own mask, not put
+  // on this wrapper. A mask on an ancestor makes it a backdrop root, and a
+  // backdrop root has nothing painted beneath it -- which silently switched
+  // every backdrop-filter below it off. Measured: the detail ramp through the
+  // band went from a smooth rise to a 30-unit step, because no blur was being
+  // applied at all.
+  const sideFade =
+    "linear-gradient(to right, rgba(0,0,0,0) 0, #000 var(--gal-side-fade), " +
+    "#000 calc(100% - var(--gal-side-fade)), rgba(0,0,0,0) 100%)";
   return (
     <div
       aria-hidden="true"
+      style={{ left: "var(--gal-side-l, 0px)", right: "var(--gal-side-r, 0px)" }}
       className={cn(
-        "pointer-events-none absolute inset-x-0 h-[var(--gal-blur)]",
+        "pointer-events-none absolute h-[var(--gal-blur)]",
         edge === "top" ? "top-0" : "bottom-0",
       )}
     >
@@ -152,7 +203,10 @@ function BlurBand({ edge }: { edge: "top" | "bottom" }) {
           const at = (k / (RAMP.length - 1)) * reach * 100;
           return `rgba(0,0,0,${a}) ${at.toFixed(2)}%`;
         }).join(", ");
-        const mask = `linear-gradient(${fromOuter}, ${stops})`;
+        // Two mask layers intersected: the vertical ramp and the horizontal
+        // feather. Intersecting keeps each one's shape intact, so the band
+        // reaches zero both before the clear centre and before the columns.
+        const mask = `linear-gradient(${fromOuter}, ${stops}), ${sideFade}`;
         const blur = `blur(${(2 ** i * 0.9).toFixed(2)}px)`;
         return (
           <div
@@ -163,6 +217,9 @@ function BlurBand({ edge }: { edge: "top" | "bottom" }) {
               WebkitBackdropFilter: blur,
               maskImage: mask,
               WebkitMaskImage: mask,
+              maskComposite: "intersect",
+              // Safari still wants the legacy keyword for the same operation.
+              WebkitMaskComposite: "source-in",
             }}
           />
         );
