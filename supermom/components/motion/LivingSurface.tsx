@@ -37,7 +37,17 @@ const GRAIN =
   "%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' " +
   "stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
-export function LivingSurface({ className }: { className?: string }) {
+export function LivingSurface({
+  className,
+  radius = "999px",
+  sweep = false,
+}: {
+  className?: string;
+  /** The host's corner radius. Clipped to it explicitly -- see below. */
+  radius?: string;
+  /** Include the slow highlight pass that crosses the control. */
+  sweep?: boolean;
+}) {
   const { effectsOff, prefersReduced } = useEffectsState();
   const rootRef = useRef<HTMLSpanElement>(null);
   const still = effectsOff || prefersReduced;
@@ -111,7 +121,29 @@ export function LivingSurface({ className }: { className?: string }) {
       ref={rootRef}
       aria-hidden="true"
       className={`pointer-events-none absolute inset-0 overflow-hidden ${className ?? ""}`}
-      style={{ "--lv-x": "50%", "--lv-y": "50%", "--lv-on": "0" } as React.CSSProperties}
+      style={{
+        "--lv-x": "50%",
+        "--lv-y": "50%",
+        "--lv-on": "0",
+        // Three belts for one pair of trousers, on purpose.
+        //
+        // These layers animate transforms and one of them blends, so they get
+        // their own compositing layers. A rounded `overflow: hidden` on an
+        // ANCESTOR is not reliably applied to composited descendants -- Safari
+        // in particular paints the descendant's rectangle, which is the
+        // rectangular backing reported around this pill. (Not reproduced in
+        // Chromium here: corner pixels matched the page background exactly at
+        // rest and on hover. No Safari engine is available in this container,
+        // so this is a fix by construction, not one I have watched work.)
+        //
+        // clip-path is the one that does the real work: it is applied at paint
+        // time and is not defeated by compositing. borderRadius and overflow
+        // stay as the ordinary path, and isolation keeps the blended layer's
+        // group from reaching outside this box.
+        borderRadius: radius,
+        clipPath: `inset(0 round ${radius})`,
+        isolation: "isolate",
+      } as React.CSSProperties}
     >
       {/* Lilac body, drifting one way. Oversized so the drift never shows an edge. */}
       <span
@@ -150,6 +182,17 @@ export function LivingSurface({ className }: { className?: string }) {
         className="absolute -inset-[30%] opacity-[0.22] mix-blend-overlay"
         style={{ animation: anim("lv-grain", 13), backgroundImage: GRAIN }}
       />
+      {/* The slow highlight pass. Inside this clipped box rather than a
+          sibling of it, so it is covered by the same clip-path. */}
+      {sweep && !still && (
+        <span
+          className="absolute inset-y-0 -left-full w-full animate-[nav-sweep_6s_linear_infinite]"
+          style={{
+            backgroundImage:
+              "linear-gradient(100deg, transparent 0%, color-mix(in oklab, var(--color-text-primary) 14%, transparent) 50%, transparent 100%)",
+          }}
+        />
+      )}
     </span>
   );
 }

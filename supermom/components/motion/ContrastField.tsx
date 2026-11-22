@@ -90,6 +90,19 @@ export type ContrastFieldProps = {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+/**
+ * The hover glow's palette, in the order it cycles: violet, lilac, pink,
+ * cyan. These are the page's own tokens -- accent-primary, border-strong,
+ * glow-pink, glow-blue -- so the glow belongs to the same atmosphere as the
+ * background rather than being a colour of its own.
+ */
+const GLOW_PALETTE: [number, number, number][] = [
+  hexToUnitRgb("#8059aa"),
+  hexToUnitRgb("#b292c6"),
+  hexToUnitRgb("#fe599b"),
+  hexToUnitRgb("#3697dc"),
+];
+
 /** Cheap structural comparison, so unchanged geometry does not force a render. */
 function sameShapes<T extends object>(a: T[], b: T[]): boolean {
   if (a.length !== b.length) return false;
@@ -125,6 +138,7 @@ export function ContrastField({
   const [rects, setRects] = useState<GuardRect[]>([]);
   const [measuredRegions, setRegions] = useState<GuardRegion[]>([]);
   const [clips, setClips] = useState<GuardClip[]>([]);
+  const clipsRef = useRef<GuardClip[]>([]);
   const elsRef = useRef<HTMLElement[]>([]);
   const rectsRef = useRef<GuardRect[]>([]);
   /**
@@ -145,6 +159,8 @@ export function ContrastField({
   const hoverRef = useRef(new WeakMap<HTMLElement, number>());
   /** The element the pointer is over. Owned by the pointer loop, never reset by a re-measure. */
   const hoverElRef = useRef<HTMLElement | null>(null);
+  /** The canvas's own box, cached by the full measure; the scroll path reuses it. */
+  const boxRef = useRef<DOMRect | null>(null);
 
   const measure = useCallback(() => {
     const host = hostRef.current;
@@ -158,6 +174,7 @@ export function ContrastField({
     // against the parent would put every element in the wrong place.
     const box = host.getBoundingClientRect();
     if (box.width < 1 || box.height < 1) return;
+    boxRef.current = box;
     // Everything the shader reads is normalised to the container's LONGER
     // axis, so a rim is the same width whichever edge it sits on.
     const major = Math.max(box.width, box.height);
@@ -205,17 +222,12 @@ export function ContrastField({
       const clipper = el.closest<HTMLElement>("[data-guard-clip]");
       const clip = clipper ? clipEls.indexOf(clipper) : -1;
       if (clipper && clip < 0) return; // inside a region the shader has no slot for
-      if (clip >= 0) {
-        // Culled only once nothing it could light is inside the region any
-        // more. The margin is the rim's own reach, so the light is already at
-        // zero by the time the element disappears from the set -- no pop.
-        const c = clipper!.getBoundingClientRect();
-        const reach = Math.min(r.width, r.height) * 0.12 + 8;
-        if (
-          r.bottom + reach < c.top || r.top - reach > c.bottom ||
-          r.right + reach < c.left || r.left - reach > c.right
-        ) return;
-      }
+      // Deliberately NOT culled by position. The shader already takes a
+      // clipped element's contribution to exactly zero outside its region, so
+      // an off-screen card costs nothing to keep -- and keeping it means the
+      // SET of rects never changes while the gallery scrolls, which is what
+      // lets the geometry below be updated in place instead of through React.
+      // Culling also used to make the slots shift mid-scroll.
 
       const minDim = Math.min(r.width, r.height) / major;
       const radiusPx = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
@@ -251,11 +263,47 @@ export function ContrastField({
     });
 
     const capped = capRects(found);
-    // Only meaningful while nothing was merged away; a merged rect has no
-    // single element behind it to hover.
-    elsRef.current = capped.length === found.length ? els : [];
-    rectsRef.current = capped;
-    setRects(capped);
+    const nextEls = capped.length === found.length ? els : [];
+
+    // Geometry takes the SHORT path whenever the set of elements is unchanged,
+    // which is every frame of a scroll.
+    //
+    // It used to go measure -> setRects -> React render -> useEffect -> mutate
+    // the engine's params -> drawn on the next frame. Two async hops after the
+    // layout read. Hover brightness, by contrast, is written straight into the
+    // live rect objects the engine already holds, with no hops -- which is
+    // exactly why brightness felt right while the rectangle lagged. Measured
+    // on the deployed build: with the pointer parked and the gallery scrolling,
+    // the glow sat 40, 50, 60, 70 then 80px behind the card and only snapped
+    // back once scrolling stopped.
+    //
+    // So when the set matches, the same objects are mutated in place. The
+    // engine is already holding this array, so the new numbers are used by the
+    // very next frame, and nothing re-renders. Nothing interpolates either:
+    // the rectangle is assigned, never eased. Only brightness and colour ease.
+    const live = rectsRef.current;
+    const prevEls = elsRef.current;
+    const sameSet =
+      live.length === capped.length &&
+      prevEls.length === nextEls.length &&
+      prevEls.every((e, i) => e === nextEls[i]);
+
+    if (sameSet) {
+      for (let i = 0; i < capped.length; i += 1) {
+        const a = live[i];
+        const b = capped[i];
+        a.x = b.x; a.y = b.y; a.w = b.w; a.h = b.h;
+        a.radius = b.radius; a.ceil = b.ceil;
+        a.band = b.band; a.strength = b.strength;
+        a.rimOutside = b.rimOutside; a.clip = b.clip;
+        // a.hover is deliberately untouched: it belongs to the pointer loop.
+      }
+      elsRef.current = nextEls;
+    } else {
+      elsRef.current = nextEls;
+      rectsRef.current = capped;
+      setRects(capped);
+    }
 
     // Regions say where the field may show at all, and which surface each
     // part of it sits on. Measured the same way as the guards so they stay
@@ -280,14 +328,55 @@ export function ContrastField({
         backdropB: kind === "ring",
       });
     });
+    // Same for the clip rects: mutate in place while the count holds, so the
+    // gallery's own bounds reach the shader on the next frame too.
+    const liveClips = clipsRef.current;
+    if (liveClips.length === foundClips.length && liveClips.length > 0) {
+      for (let i = 0; i < foundClips.length; i += 1) Object.assign(liveClips[i], foundClips[i]);
+    } else {
+      clipsRef.current = foundClips;
+      setClips(foundClips);
+    }
+
     const nextRegions = regs.slice(0, 4);
     // Regions and clips rarely change, but measure() ran often enough that
     // handing React a new array identity each time cost a render per pass.
     setRegions((prev) => (sameShapes(prev, nextRegions) ? prev : nextRegions));
-    setClips((prev) => (sameShapes(prev, foundClips) ? prev : foundClips));
     // `inset` is deliberately not a dependency: changing it resizes the
     // canvas, and the ResizeObserver on the canvas already re-measures.
   }, [rimScale, bendScale, regionFeather]);
+
+  /**
+   * Position-only update, run SYNCHRONOUSLY while the gallery scrolls.
+   *
+   * The full measure was deferred to a requestAnimationFrame, and the engine's
+   * draw is a rAF callback too -- registered first, so it uploaded the old
+   * geometry before the measure ran, every single frame. Measured on the
+   * deployed build by comparing the upload with the DOM in the same JS turn:
+   * up to 20px out during a slow scroll and 160px during a fast one.
+   *
+   * Scroll events are dispatched after layout is settled, so reading here is
+   * reading the truth, and writing straight into the live rect objects means
+   * the very next draw has it. Nothing is interpolated: positions are
+   * assigned. Only brightness and colour ease, and they are untouched here.
+   *
+   * Size-derived values (radius, rim width, bend) cannot change by scrolling,
+   * so this skips getComputedStyle entirely and costs one rect read per guard.
+   */
+  const syncGeometry = useCallback(() => {
+    const box = boxRef.current;
+    const els = elsRef.current;
+    const rects = rectsRef.current;
+    if (!box || els.length !== rects.length) return;
+    for (let i = 0; i < els.length; i += 1) {
+      const r = els[i].getBoundingClientRect();
+      const t = rects[i];
+      t.x = (r.left - box.left) / box.width;
+      t.y = (r.top - box.top) / box.height;
+      t.w = r.width / box.width;
+      t.h = r.height / box.height;
+    }
+  }, []);
 
   // Re-measure on anything that can move a guarded element.
   useEffect(() => {
@@ -335,22 +424,27 @@ export function ContrastField({
     // gallery scrolled and the lighting stayed behind where the cards were.
     let sRaf = 0;
     const onScroll = () => {
+      // Synchronous, so the next draw cannot be given stale positions.
+      syncGeometry();
+      // A full measure trails behind it, coalesced, to pick up anything a
+      // position-only pass does not cover.
       if (sRaf) return;
       sRaf = window.requestAnimationFrame(() => { sRaf = 0; measure(); });
     };
-    const clippers = Array.from(frame.querySelectorAll<HTMLElement>("[data-guard-clip]"));
-    clippers.forEach((c) => c.addEventListener("scroll", onScroll, { passive: true }));
+    // Capture: scroll does not bubble, and the gallery is replaced whenever
+    // the filter changes, so binding to the elements found at mount is fragile.
+    frame.addEventListener("scroll", onScroll, { capture: true, passive: true });
 
     return () => {
       ro.disconnect();
       frame.removeEventListener("transitionend", onTransition);
       frame.removeEventListener("animationend", kick);
       window.removeEventListener("resize", measure);
-      clippers.forEach((c) => c.removeEventListener("scroll", onScroll));
+      frame.removeEventListener("scroll", onScroll, { capture: true } as EventListenerOptions);
       if (sRaf) window.cancelAnimationFrame(sRaf);
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [measure, revision]);
+  }, [measure, syncGeometry, revision]);
 
   // Hover: the element under the pointer brightens its own edge.
   //
@@ -398,17 +492,44 @@ export function ContrastField({
     };
     const kick = () => { if (!raf) { last = 0; raf = window.requestAnimationFrame(step); } };
 
-    const onMove = (e: PointerEvent) => {
-      const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-guard]") ?? null;
+    // Where the pointer last was, so the hovered element can be worked out
+    // again when the page moves underneath a pointer that has not.
+    let px = -1;
+    let py = -1;
+
+    const retarget = (el: HTMLElement | null) => {
       if (el !== hoverElRef.current) { hoverElRef.current = el; kick(); }
     };
-    const onLeave = () => { hoverElRef.current = null; kick(); };
+    const onMove = (e: PointerEvent) => {
+      px = e.clientX; py = e.clientY;
+      retarget((e.target as HTMLElement | null)?.closest<HTMLElement>("[data-guard]") ?? null);
+    };
+    const onLeave = () => { px = -1; py = -1; retarget(null); };
+
+    // Scrolling the gallery changes which card is under a stationary pointer,
+    // and no pointer event fires for that. Without this the shader kept
+    // lighting the card the pointer originally entered while the card's own
+    // CSS :hover border moved to the card now underneath -- two different
+    // cards highlighted at once. Capture, because scroll does not bubble, and
+    // because the gallery is replaced whenever the filter changes.
+    let sraf = 0;
+    const onScroll = () => {
+      if (px < 0 || sraf) return;
+      sraf = window.requestAnimationFrame(() => {
+        sraf = 0;
+        const hit = document.elementFromPoint(px, py) as HTMLElement | null;
+        retarget(hit?.closest<HTMLElement>("[data-guard]") ?? null);
+      });
+    };
 
     root.addEventListener("pointermove", onMove, { passive: true });
     root.addEventListener("pointerleave", onLeave, { passive: true });
+    root.addEventListener("scroll", onScroll, { capture: true, passive: true });
     return () => {
       root.removeEventListener("pointermove", onMove);
       root.removeEventListener("pointerleave", onLeave);
+      root.removeEventListener("scroll", onScroll, { capture: true } as EventListenerOptions);
+      if (sraf) window.cancelAnimationFrame(sraf);
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, []);
@@ -425,6 +546,7 @@ export function ContrastField({
     feather,
     backdrop: hexToUnitRgb(SURFACE_PAGE),
     backdropB: backdropB ? hexToUnitRgb(backdropB) : undefined,
+    tints: GLOW_PALETTE,
     heatmap,
     safety,
     refract,

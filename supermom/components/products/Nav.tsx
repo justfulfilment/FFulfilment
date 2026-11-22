@@ -6,7 +6,6 @@ import { cn } from "@/lib/cn";
 import { DeadLink, pressable } from "@/components/ui/Dead";
 import { Spinner } from "@/components/ui/WalletButton";
 import { Mark } from "@/components/icons/Mark";
-import { useEffectsState } from "@/components/motion/MotionProvider";
 import { LivingSurface } from "@/components/motion/LivingSurface";
 
 const LINKS = ["Products", "Journey Map", "Newsletter"] as const;
@@ -20,7 +19,6 @@ const LINKS = ["Products", "Journey Map", "Newsletter"] as const;
  * description on 1:202. The label never fades.
  */
 export function Nav() {
-  const { effectsOff } = useEffectsState();
   const [wallet, setWallet] = useState<"idle" | "pending" | "connected">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -95,19 +93,10 @@ export function Nav() {
             It replaces the single linear sweep that used to run here: one
             beam crossing the pill read as a loading shimmer rather than a
             material, and it could not respond to the pointer at all. */}
-        {wallet !== "pending" && <LivingSurface />}
-        {/* The signature sweep still passes over the top, now as the
-            highlight on that material rather than the whole of it. */}
-        {!effectsOff && wallet !== "pending" && (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 -left-full w-full animate-[nav-sweep_6s_linear_infinite]"
-            style={{
-              backgroundImage:
-                "linear-gradient(100deg, transparent 0%, color-mix(in oklab, var(--color-text-primary) 14%, transparent) 50%, transparent 100%)",
-            }}
-          />
-        )}
+        {/* The sweep lives INSIDE the surface now. As a sibling it was an
+            unrounded rectangle relying on the button's own overflow to clip
+            it, which is the same weakness as the layers below it. */}
+        {wallet !== "pending" && <LivingSurface sweep />}
         <span className="relative z-10 flex items-center gap-2">
           {wallet === "idle" && (
             <>

@@ -333,6 +333,8 @@ export type GuardConfig = {
   shiftY: number;
   /** Second surface colour, for regions that opt into it. */
   backdropB?: [number, number, number];
+  /** Four sRGB 0..1 colours the hover glow cycles through. */
+  tints?: [number, number, number][];
   /** Where the field may show. Empty means everywhere. */
   regions?: GuardRegion[];
   /** Scroll regions that clip the light of the elements inside them. */
@@ -1149,6 +1151,15 @@ uniform vec4 uSmClips[2];
 uniform vec4 uSmClipMeta[2];
 uniform float uSmRefract;
 uniform float uSmGlow;
+// The hover glow's palette: violet, lilac, pink, cyan, taken from the page's
+// own tokens. The glow cycles slowly through them instead of simply
+// brightening whatever the field already is, which is what gives it a colour
+// of its own without changing how big or how strong it is.
+uniform vec3 uSmTint[4];
+// 0..1, one full pass through the palette. Continuous clock, like the breath,
+// so it never restarts on a pointer event. It also rotates which side of the
+// rounded edge is brightest, which is where the directional reading comes from.
+uniform float uSmHue;
 // A slow swell on the edge lighting. Driven from absolute clock time, so it
 // is continuous and never restarts when the pointer moves or enters a new
 // element -- restarting was what read as a brightness jump.
@@ -1177,6 +1188,15 @@ uniform vec4 uSmRegions[4];
 // w = 0 uses uSmBackdrop, 1 uses uSmBackdropB
 uniform vec4 uSmRegionMeta[4];
 uniform vec3 uSmBackdropB;
+// Eased blend between the four palette colours, so the colour changes
+// gradually rather than stepping from one to the next.
+vec3 smTintAt(float t){
+float f=fract(t)*4.0;
+int i0=int(f);
+int i1=i0+1;if(i1>3)i1=0;
+float k=fract(f);k=k*k*(3.0-2.0*k);
+return mix(uSmTint[i0],uSmTint[i1],k);
+}
 float smLin1(float c){return c<=0.04045?c/12.92:pow((c+0.055)/1.055,2.4);}
 float smSrgb1(float c){return c<=0.0031308?c*12.92:1.055*pow(max(c,0.0),1.0/2.4)-0.055;}
 vec3 smLin3(vec3 c){return vec3(smLin1(c.r),smLin1(c.g),smLin1(c.b));}
@@ -1262,7 +1282,14 @@ acc+=nrm*exp(-t*t)*m.w*cv;
 float core=sd/(band*0.22);
 vec4 m2=uSmGuardMeta2[i];
 float r=(exp(-core*core)*0.75+exp(-t*t)*0.35)*cv;
-float rh=r*m2.y*2.2;
+// Which side of the rounded edge is lit most, rotating once per palette
+// pass. nrm is the outward normal of the ROUNDED rect, so the bright side
+// travels around the corners as a curve -- it can never read as a
+// rectangle. Kept inside 0.78..1.22 so it reads as a drift in emphasis
+// rather than a spotlight.
+float smAng=uSmHue*6.2831853;
+float smDir=0.78+0.44*(0.5+0.5*dot(nrm,vec2(cos(smAng),sin(smAng))));
+float rh=r*m2.y*2.2*smDir;
 if(m2.x>0.5){
 // Outside the element the glow runs free; inside it stays under the
 // brightness limit, so the words' own background is never touched.
@@ -1431,7 +1458,14 @@ float smFieldLight=smLum(smLin3(clamp(color.rgb,0.0,1.0)*clamp(color.a,0.0,1.0))
 // arc was nowhere near.
 float smLit=smoothstep(0.06,0.24,smFieldLight);
 if(uSmEnabled>0.5&&uSmGlow>0.0&&(smRimIn>0.0||smHovIn>0.0)){
-color.rgb+=color.rgb*(smRimIn*smLit+smHovIn)*uSmGlow*uSmBreath;
+// The ambient rim keeps the field's own colour: that one is light bending
+// around an edge, and it should look like the light that is actually
+// there. Only the HOVER glow is tinted. Scaling the tint by the colour's
+// own peak channel keeps the magnitude it had before, so the size and
+// strength are untouched and only the hue moves.
+vec3 smTint=smTintAt(uSmHue);
+vec3 smHovCol=mix(color.rgb,smTint*max(max(color.r,color.g),color.b),0.6);
+color.rgb+=color.rgb*smRimIn*smLit*uSmGlow*uSmBreath+smHovCol*smHovIn*uSmGlow*uSmBreath;
 }
 color=clamp(color,0.0,1.0);
 if(uSmEnabled>0.5){
@@ -1469,7 +1503,11 @@ color.rgb=comp;
 color.a=1.0;
 }
 if(uSmEnabled>0.5&&uSmGlow>0.0&&(smRimOut>0.0||smHovOut>0.0)){
-color.rgb=clamp(color.rgb+color.rgb*(smRimOut*smLit+smHovOut)*uSmGlow*uSmBreath,0.0,1.0);
+// The soft halo OUTSIDE the element, same treatment. This is the part that
+// reads as a glow around the card rather than on it.
+vec3 smTintO=smTintAt(uSmHue);
+vec3 smHovColO=mix(color.rgb,smTintO*max(max(color.r,color.g),color.b),0.6);
+color.rgb=clamp(color.rgb+color.rgb*smRimOut*smLit*uSmGlow*uSmBreath+smHovColO*smHovOut*uSmGlow*uSmBreath,0.0,1.0);
 }
 if(uPremultiply>0.5)color.rgb*=color.a;
 cfFragColor=color*cfFrameCoverage(gl_FragCoord.xy);
@@ -1516,6 +1554,9 @@ const regs=g.regions||[],rc=Math.min(4,regs.length),rxy=new Float32Array(16),rmt
 for(let i=0;i<rc;i+=1){const r=regs[i];rxy.set([r.x,r.y,r.w,r.h],i*4);
 rmt.set([r.radius||0,r.feather||0.02,r.subtract?-1:1,r.backdropB?1:0],i*4)}
 const bb=g.backdropB||g.backdrop;
+const tints=g.tints&&g.tints.length>=4?g.tints:[[0.50,0.35,0.67],[0.70,0.57,0.78],[1.0,0.35,0.61],[0.21,0.59,0.86]];
+const tn=new Float32Array(12);
+for(let i=0;i<4;i+=1)tn.set(tints[i],i*3);
 e.uniform1f(n("uSmEnabled"),1),e.uniform1f(n("uSmHeatmap"),g.heatmap?1:0),
 e.uniform2f(n("uSmContainerPx"),a.width,a.height),
 e.uniform3f(n("uSmBackdrop"),g.backdrop[0],g.backdrop[1],g.backdrop[2]),
@@ -1525,6 +1566,8 @@ e.uniform1f(n("uSmSafety"),typeof g.safety==="number"?g.safety:0.95),
 e.uniform1f(n("uSmRefract"),typeof g.refract==="number"?g.refract:0),
 e.uniform1f(n("uSmGlow"),typeof g.glow==="number"?g.glow:0),
 e.uniform1f(n("uSmBreath"),0.88+0.12*Math.sin(performance.now()/4200*Math.PI*2)),
+e.uniform3fv(n("uSmTint[0]"),tn),
+e.uniform1f(n("uSmHue"),(performance.now()/26000)%1),
 e.uniform2f(n("uSmShift"),typeof g.shiftX==="number"?g.shiftX:0,typeof g.shiftY==="number"?g.shiftY:0),
 e.uniform1i(n("uSmGuardCount"),cnt),e.uniform4fv(n("uSmGuards[0]"),xy),e.uniform4fv(n("uSmGuardMeta[0]"),mt),e.uniform4fv(n("uSmGuardMeta2[0]"),m2),
 e.uniform1i(n("uSmRegionCount"),rc),e.uniform4fv(n("uSmRegions[0]"),rxy),e.uniform4fv(n("uSmRegionMeta[0]"),rmt),
