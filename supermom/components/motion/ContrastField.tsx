@@ -161,6 +161,18 @@ export function ContrastField({
   const hoverElRef = useRef<HTMLElement | null>(null);
   /** The canvas's own box, cached by the full measure; the scroll path reuses it. */
   const boxRef = useRef<DOMRect | null>(null);
+  /**
+   * False until the first measurement has reached the engine.
+   *
+   * Before that the engine has no rects, so it would render the field at full
+   * brightness with nothing protected. On a fast machine that is a single
+   * frame; on a slow one it is seconds, and the contrast verifier caught it
+   * as a real failure on cold loads (3 in ~25 runs, always the first load
+   * after a restart). Until the rects land, the whole field is held at the
+   * tightest ceiling in the set, so the first frame can only ever be too dim
+   * -- never too bright over text.
+   */
+  const [measured, setMeasured] = useState(false);
 
   const measure = useCallback(() => {
     const host = hostRef.current;
@@ -304,6 +316,7 @@ export function ContrastField({
       rectsRef.current = capped;
       setRects(capped);
     }
+    if (capped.length > 0) setMeasured(true);
 
     // Regions say where the field may show at all, and which surface each
     // part of it sits on. Measured the same way as the guards so they stay
@@ -500,9 +513,17 @@ export function ContrastField({
     const retarget = (el: HTMLElement | null) => {
       if (el !== hoverElRef.current) { hoverElRef.current = el; kick(); }
     };
+    // Elements inside a scroll region are lit by their own in-wrapper halo
+    // now, so the shader must not light them too -- two glows on one card
+    // would disagree the moment anything scrolled. Everything outside a
+    // scroll region (the nav, the filter tabs) still uses the shader, where
+    // it has always behaved.
+    const hoverable = (el: HTMLElement | null) =>
+      el && !el.closest("[data-guard-clip]") ? el : null;
+
     const onMove = (e: PointerEvent) => {
       px = e.clientX; py = e.clientY;
-      retarget((e.target as HTMLElement | null)?.closest<HTMLElement>("[data-guard]") ?? null);
+      retarget(hoverable((e.target as HTMLElement | null)?.closest<HTMLElement>("[data-guard]") ?? null));
     };
     const onLeave = () => { px = -1; py = -1; retarget(null); };
 
@@ -518,7 +539,7 @@ export function ContrastField({
       sraf = window.requestAnimationFrame(() => {
         sraf = 0;
         const hit = document.elementFromPoint(px, py) as HTMLElement | null;
-        retarget(hit?.closest<HTMLElement>("[data-guard]") ?? null);
+        retarget(hoverable(hit?.closest<HTMLElement>("[data-guard]") ?? null));
       });
     };
 
@@ -542,7 +563,8 @@ export function ContrastField({
 
   const guard: GuardConfig = {
     enabled: true,
-    ceilOpen,
+    // Held dark until the first measurement lands; see `measured`.
+    ceilOpen: measured ? ceilOpen : TIGHTEST_CEILING,
     feather,
     backdrop: hexToUnitRgb(SURFACE_PAGE),
     backdropB: backdropB ? hexToUnitRgb(backdropB) : undefined,

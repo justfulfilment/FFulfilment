@@ -440,6 +440,119 @@ html[data-custom-pointer="on"] * {
   --motion-shift: 12px;
 }
 
+/* ==========================================================================
+   The NFT card's hover halo.
+
+   This lives INSIDE the card's own wrapper, in the scrolling content, and
+   that is the whole point. The previous halo was drawn by the background
+   shader from screen coordinates measured in JavaScript, which meant two
+   separate problems that no amount of synchronising could remove:
+
+     Targeting. Which card is hovered was decided by JS from pointer events
+     plus a re-check on scroll, rAF-throttled and then eased. Measured on the
+     deployed build with the pointer parked: once the pointer sat in the gap
+     between rows the old card's glow did not merely linger, it went on
+     BRIGHTENING, 0.16 -> 0.80, and a newly hovered card stayed dark for two
+     frames. Here the browser's own :hover does it: it is recalculated when
+     content scrolls under a stationary pointer, it clears in a gap, and it
+     needs no pointer movement.
+
+     Geometry. A measured rectangle can only ever be as fresh as the last
+     main-thread frame, while the scrolled content is presented by the
+     compositor. Here there is no measurement at all -- the halo is a child
+     of the card, so the card and its halo move as one thing by construction.
+
+   Boundary fade comes free and correct: both sit inside the scrollport, so
+   the gallery's existing mask fades card and halo together, in one
+   compositing stage, on one curve. No second fade to keep in step, no
+   rounded corner redrawn at the clip line, nothing left behind.
+   ========================================================================== */
+
+.card-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-card);
+  pointer-events: none;
+  /* Opacity here has exactly one owner: the hover state. Breathing and the
+     colour drift live on the children, so nothing shares a property. */
+  opacity: 0;
+  /* A halo that is not shown should not be rendered at all; there are
+     sixteen of them. visibility flips in at once on the way in and only
+     after the fade has finished on the way out, so the fade is unaffected. */
+  visibility: hidden;
+  transition:
+    opacity var(--duration-normal, 250ms) var(--ease-out-cubic, ease-out),
+    visibility 0s linear var(--duration-normal, 250ms);
+}
+
+:root {
+  /* Matched to the bloom the shader version produced, which is the one that
+     was approved: roughly 20px of reach, soft enough to read as light
+     rather than as an outline. */
+  --card-glow-peak: 0.62;
+}
+
+.group:hover > .card-glow,
+.group:focus-within > .card-glow {
+  opacity: var(--card-glow-peak);
+  visibility: visible;
+  transition:
+    opacity var(--duration-normal, 250ms) var(--ease-out-cubic, ease-out),
+    visibility 0s linear 0s;
+}
+
+/* Two halos in the page's own palette, cross-fading slowly against each
+   other. That is what produces the gradual colour change and the breath,
+   and the ONLY animated property is opacity, which the compositor handles
+   without repainting.
+
+   These are box-shadows, deliberately, not a blurred gradient. A blurred
+   layer was the first attempt and it had to be abandoned: sixteen elements
+   carrying filter: blur() intermittently changed how the page composited the
+   WebGL background, and the contrast verifier caught the field rendering
+   brighter than its ceiling over the heading on roughly 40% of loads.
+   Removing the filter took that to 0 in every run. A box-shadow follows the
+   border radius exactly, costs no extra layer, and cannot do that. */
+.card-glow > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: card-glow-breathe 9s ease-in-out infinite;
+}
+.card-glow > span:first-child {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-border-strong) 55%, transparent),
+    0 0 14px 1px color-mix(in oklab, var(--color-accent-primary) 70%, transparent),
+    0 0 30px 6px color-mix(in oklab, var(--color-accent-primary) 42%, transparent),
+    0 0 54px 14px color-mix(in oklab, var(--color-border-strong) 22%, transparent);
+}
+.card-glow > span:last-child {
+  animation-delay: -4.5s;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-glow-blue) 42%, transparent),
+    0 0 14px 1px color-mix(in oklab, var(--color-glow-pink) 50%, transparent),
+    0 0 32px 7px color-mix(in oklab, var(--color-glow-blue) 34%, transparent),
+    0 0 56px 15px color-mix(in oklab, var(--color-glow-pink) 18%, transparent);
+}
+
+/* Restrained: a swell, not a pulse. The pair is out of phase, so as one
+   fades the other rises and the colour drifts between them. */
+@keyframes card-glow-breathe {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 1; }
+}
+
+/* Only the hovered card animates; pausing keeps the phase rather than
+   restarting it. */
+.card-glow > span { animation-play-state: paused; }
+.group:hover > .card-glow > span,
+.group:focus-within > .card-glow > span { animation-play-state: running; }
+
+/* Pause effects and reduced motion both set this. The halo keeps its colour
+   and its hover response; only the movement stops. */
+:root[data-reduce-motion] .card-glow > span { animation: none; opacity: 0.62; }
+:root[data-reduce-motion] .card-glow { transition: none; }
+
 /* The living surface inside Connect wallet. Transform only, so the compositor
    owns every frame and nothing here triggers layout or paint. Each layer runs
    on its own period, and the pair is deliberately coprime-ish so the drift

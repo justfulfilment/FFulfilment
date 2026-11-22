@@ -39,8 +39,16 @@ export function NftCard({ nft, index }: { nft: Nft; index: number }) {
     // plain, untransformed rectangle.
     <div
       style={{ "--i": index } as React.CSSProperties}
-      className="stagger-item anim-rise-in"
+      // `group` so the halo can read this card's own :hover -- the browser
+      // keeps that up to date while the gallery scrolls under a still
+      // pointer, which is the behaviour the JS targeting kept getting wrong.
+      // `relative` to position the halo, and the hovered card lifts above its
+      // neighbours so its halo is not covered by their opaque card bodies.
+      className="stagger-item anim-rise-in group relative hover:z-10 focus-within:z-10"
     >
+      {/* Decorative only: no pointer events, and painted before the card so
+          the card always sits on top of it. */}
+      <span aria-hidden="true" className="card-glow"><span /><span /></span>
     <article data-guard="surface"
       className={cn(
         "group/card relative flex h-full flex-col",
